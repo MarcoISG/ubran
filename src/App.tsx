@@ -248,22 +248,17 @@ export default function App(){
           <span style={{width:28,height:28,display:"grid",placeItems:"center",borderRadius:6,background:"#0f172a",color:"#10b981",fontWeight:900}}>U</span>
           Ubran
         </h1>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          <button onClick={()=>setTab('dashboard')} className="btn">Inicio</button>
-          <button onClick={()=>setTab('data')} className="btn">Datos</button>
-          <button onClick={()=>setTab('goals')} className="btn">Metas</button>
-          <button onClick={()=>setTab('vehicles')} className="btn">Vehículos</button>
-          <button onClick={()=>setTab('settings')} className="btn">Ajustes</button>
-          <label className="btn">
-            <Upload size={16}/> Importar
-            <input type="file" style={{display:'none'}} onChange={(e)=>{const f=e.target.files?.[0]; if(f) importJson(f)}}/>
-          </label>
-          <button className="btn" onClick={exportJson}><Download size={16}/> Exportar</button>
-        </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <label className="btn">
+              <Upload size={16}/> Importar
+              <input type="file" style={{display:'none'}} onChange={(e)=>{const f=e.target.files?.[0]; if(f) importJson(f)}}/>
+            </label>
+            <button className="btn" onClick={exportJson}><Download size={16}/> Exportar</button>
+          </div>
       </div>
 
       {/* KPIs */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16,marginTop:16}}>
+      <div className="kpi-grid" style={{marginTop:16}}>
         <Kpi title="Neto real" icon={<Wallet size={16}/>} value={`CLP ${Math.round(totals.net).toLocaleString()}`} sub="Después de 14% + bencina + mantención"/>
         <Kpi title="Neto / hora" icon={<Gauge size={16}/>} value={`CLP ${Math.round(totals.netPerHour).toLocaleString()}`} sub={`Horas: ${totals.hours.toFixed(1)} — Viajes: ${totals.trips}`}/>
         <Kpi title="Bonos" icon={<Target size={16}/>} value={`CLP ${totals.bonusAcc.toLocaleString()}`} sub="20/30/40/50 viajes"/>
@@ -271,7 +266,7 @@ export default function App(){
       </div>
 
       {/* Tabs */}
-      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:12}}>
+      <div className="tabs">
         <TabBtn active={tab==='dashboard'} onClick={()=>setTab('dashboard')}>Dashboard</TabBtn>
         <TabBtn active={tab==='data'} onClick={()=>setTab('data')}>Carga de datos</TabBtn>
         <TabBtn active={tab==='goals'} onClick={()=>setTab('goals')}>Metas</TabBtn>
@@ -280,7 +275,7 @@ export default function App(){
       </div>
 
       {tab==='dashboard' && (
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+        <div className="charts-grid">
           <Card>
             <h3 style={{marginTop:0}}>Neto por día</h3>
             <div style={{height:260}}>
