@@ -548,6 +548,23 @@ function Costs({fuel, maint, tax}:{fuel:number; maint:number; tax:number}) {
 function Row({k,v}:{k:string; v:string}) {
   return <div style={{display:"flex",justifyContent:"space-between"}}><span>{k}</span><span>{v}</span></div>;
 }
+
+function Pill({children}:{children:React.ReactNode}) {
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        padding: '4px 8px',
+        border: '1px solid #e5e7eb',
+        borderRadius: 999,
+        background: '#f9fafb',
+        fontSize: 12,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
 function TabBtn({active, children, onClick}:{active:boolean; children:React.ReactNode; onClick:()=>void}) {
   return <button onClick={onClick} style={{padding:"8px 12px",border:"1px solid "+(active?"#10b981":"#e5e7eb"),borderRadius:10,background:active?"#eefcf6":"#fff",cursor:"pointer"}}>{children}</button>;
 }
