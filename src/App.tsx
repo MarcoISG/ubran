@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Wallet, Gauge, Target, Fuel, Upload, Download, PlusCircle, Trash2, Car, Goal as GoalIcon, MapPin } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, Bar } from "recharts";
+import Tesseract from 'tesseract.js';
 
 // Helper numeric input with placeholder, avoids persistent 0 by using text input and internal buffer
 function InputNum({
@@ -44,6 +45,79 @@ function InputNum({
   );
 }
 
+// OCR helper functions
+async function ocrReceipt(file: File): Promise<string> {
+  // OCR con Tesseract (inglés suficiente para números/símbolos). Puedes cambiar a 'spa' si quieres.
+  const { data } = await Tesseract.recognize(file, 'eng', {
+    logger: (m) => console.log('[OCR]', m.status, m.progress)
+  });
+  return data.text || '';
+}
+
+function parseReceipt(text: string): {
+  totalCLP?: number,
+  litros?: number,
+  precioPorLitro?: number,
+  fechaISO?: string,
+  estacion?: string
+} {
+  const clean = text.replace(/\s+/g, ' ').toUpperCase();
+
+  // TOTAL
+  const totalMatch =
+    clean.match(/TOTAL[^0-9]*\$?\s*([\d\.,]{3,})/) ||
+    clean.match(/MONTO\s+TOTAL[^0-9]*\$?\s*([\d\.,]{3,})/) ||
+    clean.match(/PAGAR[^0-9]*\$?\s*([\d\.,]{3,})/);
+
+  // LITROS
+  const litrosMatch =
+    clean.match(/LITROS?\s*[:=]?\s*([\d\.,]+)/) ||
+    clean.match(/\b([0-9]+(?:[.,][0-9]+)?)\s*L\b/);
+
+  // PRECIO / LITRO
+  const pplMatch =
+    clean.match(/PRECIO\s*\/\s*LITRO[^0-9]*\$?\s*([\d\.,]+)/) ||
+    clean.match(/P\/?L\s*[:=]?\s*\$?\s*([\d\.,]+)/);
+
+  // FECHA
+  const fechaMatch =
+    clean.match(/\b(\d{2}[\/\-.]\d{2}[\/\-.]\d{4})\b/) ||
+    clean.match(/\b(\d{4}[\/\-.]\d{2}[\/\-.]\d{2})\b/);
+
+  // ESTACIÓN
+  const estacionMatch = clean.match(/\b(COPEC|SHELL|ENEX|PETROBRAS|TERPEL|PRONTO|LIPIGAS|ESO|GULF)\b/);
+
+  const toNumber = (s?: string) => {
+    if (!s) return undefined;
+    const n = s.replace(/\./g, '').replace(/,/g, '.');
+    const val = Number(n);
+    return Number.isFinite(val) ? val : undefined;
+  };
+
+  const totalCLP = toNumber(totalMatch?.[1]);
+  const litros = toNumber(litrosMatch?.[1]);
+  const precioPorLitro = toNumber(pplMatch?.[1]);
+
+  let fechaISO: string | undefined;
+  if (fechaMatch?.[1]) {
+    const f = fechaMatch[1].replace(/\./g,'/').replace(/-/g,'/');
+    const parts = f.split('/');
+    if (parts[0].length === 2 && parts[2].length === 4) {
+      const [dd, mm, yyyy] = parts.map(p=>parseInt(p,10));
+      const d = new Date(yyyy, mm-1, dd);
+      if (!isNaN(d.getTime())) fechaISO = d.toISOString().slice(0,10);
+    } else if (parts[0].length === 4) {
+      const [yyyy, mm, dd] = parts.map(p=>parseInt(p,10));
+      const d = new Date(yyyy, mm-1, dd);
+      if (!isNaN(d.getTime())) fechaISO = d.toISOString().slice(0,10);
+    }
+  }
+
+  const estacion = estacionMatch?.[1] || undefined;
+
+  return { totalCLP, litros, precioPorLitro, fechaISO, estacion };
+}
+
 type Entry = {
   id: string;
   date: string;
@@ -51,7 +125,12 @@ type Entry = {
   trips: number;
   gross: number;
   cash: number;
-  fuelCLP: number;
+  fuelCLP: number;          // total CLP (si se conoce)
+  odometerStart?: number;   // km inicio
+  odometerEnd?: number;     // km final
+  liters?: number;          // litros cargados
+  pricePerL?: number;       // CLP por litro
+  station?: string;         // nombre estación (opcional)
   vehicleId?: string;
 }
 type Vehicle = {
@@ -60,6 +139,9 @@ type Vehicle = {
   make?: string;
   model?: string;
   year?: number;
+  engineL?: number;  // cilindrada (L)
+  kmPerL?: number;   // rendimiento (km/L)
+  manualSpecs?: boolean; // permitir edición manual de motor/rendimiento
   notes?: string;
 }
 type Goal = {
@@ -90,7 +172,8 @@ const DEFAULT_SETTINGS = {
   favPlace: "",
   incTax: true,    // incluir 14% en neto
   incFuel: true,   // incluir bencina
-  incMaint: true   // incluir mantención/h
+  incMaint: true,  // incluir mantención/h
+  useFuelByKm: true // usar bencina estimada por km (default true)
 };
 
 export default function App(){
@@ -133,40 +216,137 @@ export default function App(){
     "DFSK": ["Glory 560", "Glory 580"],
     "Volvo": ["S40", "S60", "XC40", "XC60"]
   };
-  const [tab, setTab] = useState<"dashboard"|"data"|"goals"|"vehicles"|"settings">("dashboard");
+  const [tab, setTab] = useState<"dashboard"|"data"|"fuel"|"goals"|"vehicles"|"settings">("dashboard");
+
+  const avgPricePerL = useMemo(()=>{
+    const vals = entries.map(e=>Number(e.pricePerL)||0).filter(n=>n>0);
+    if (!vals.length) return 0;
+    return vals.reduce((a,b)=>a+b,0)/vals.length;
+  },[entries]);
+
+  // Valores aproximados por fabricante/modelo (referenciales)
+  const VEH_SPECS: Record<string, Record<string, { engineL: number; kmPerL: number }>> = {
+    "Chery": {
+      "Tiggo 2": { engineL: 1.5, kmPerL: 11 },
+      "Arrizo 5": { engineL: 1.5, kmPerL: 13 }
+    },
+    "Toyota": {
+      "Yaris": { engineL: 1.3, kmPerL: 16 },
+      "Corolla": { engineL: 1.6, kmPerL: 15 }
+    },
+    "Chevrolet": {
+      "Sail": { engineL: 1.5, kmPerL: 14 },
+      "Onix": { engineL: 1.0, kmPerL: 17 }
+    },
+    "Hyundai": {
+      "Accent": { engineL: 1.6, kmPerL: 13 },
+      "Grand i10": { engineL: 1.2, kmPerL: 18 }
+    },
+    "Kia": {
+      "Rio": { engineL: 1.4, kmPerL: 14 },
+      "Morning": { engineL: 1.2, kmPerL: 17 }
+    },
+    "Nissan": {
+      "Versa": { engineL: 1.6, kmPerL: 15 },
+      "Sentra": { engineL: 2.0, kmPerL: 13 }
+    },
+    "Suzuki": {
+      "Swift": { engineL: 1.2, kmPerL: 18 },
+      "Baleno": { engineL: 1.4, kmPerL: 17 }
+    },
+    "Ford": {
+      "Fiesta": { engineL: 1.6, kmPerL: 14 },
+      "Focus": { engineL: 2.0, kmPerL: 12 }
+    },
+    "Volkswagen": {
+      "Gol": { engineL: 1.6, kmPerL: 13 },
+      "Polo": { engineL: 1.6, kmPerL: 14 }
+    }
+  };
 
   const totals = useMemo(()=>{
     const hours = entries.reduce((s,r)=>s+(Number(r.hours)||0),0);
     const trips = entries.reduce((s,r)=>s+(Number(r.trips)||0),0);
     const gross = entries.reduce((s,r)=>s+(Number(r.gross)||0),0);
     const cash = entries.reduce((s,r)=>s+(Number(r.cash)||0),0);
+
     // costos con toggles
     const tax  = settings.incTax  ? gross * settings.tax : 0;
     const postTax = gross - tax;
-    const fuel = settings.incFuel
-      ? entries.reduce((s,r)=>s+(Number(r.fuelCLP)||0),0)
-      : 0;
+
+    // Método 1: bencina por boletas (fuelCLP o litros*$L)
+    const fuelByReceipts = entries.reduce((s,r)=>{
+      const direct = Number(r.fuelCLP)||0;
+      const calc = (Number(r.liters)||0) * (Number(r.pricePerL)||0);
+      return s + (direct>0 ? direct : calc);
+    },0);
+
+    // Método 2: bencina estimada solo Uber por km
+    let fuelUberLitersEst = 0;
+    let fuelByKmCLP = 0;
+    for (const r of entries){
+      const kms = Math.max(0, (Number(r.odometerEnd)||0) - (Number(r.odometerStart)||0));
+      if (kms<=0) continue;
+      const veh = vehicles.find(v => v.id === (r.vehicleId || '')) || vehicles.find(v=>v.id===vehicleId);
+      const kmPerL = veh?.kmPerL || 0;
+      if (kmPerL>0){
+        const liters = kms / kmPerL;
+        const price = (Number(r.pricePerL)||0) || avgPricePerL || 0;
+        fuelUberLitersEst += liters;
+        fuelByKmCLP += liters * price;
+      }
+    }
+
+    const fuelChosen = settings.incFuel ? (settings.useFuelByKm ? fuelByKmCLP : fuelByReceipts) : 0;
     const maint = settings.incMaint ? hours * settings.maintPerHour : 0;
-    const net = postTax - fuel - maint;
+    const net = postTax - fuelChosen - maint;
+
+    // Bonos
     let bonusAcc = 0;
     if (trips>=20) bonusAcc += bonus.b20;
     if (trips>=30) bonusAcc += bonus.b30;
     if (trips>=40) bonusAcc += bonus.b40;
     if (trips>=50) bonusAcc += bonus.b50;
+
     const netPerHour = hours>0? net/hours : 0;
     const netPerTrip = trips>0? net/trips : 0;
-    return { hours, trips, gross, cash, fuel, tax, postTax, maint, net, bonusAcc, netPerHour, netPerTrip };
-  }, [entries, settings, bonus]);
+    return { hours, trips, gross, cash, tax, postTax, maint, net, bonusAcc, netPerHour, netPerTrip,
+      // fuel aggregates
+      fuelByReceipts, fuelByKmCLP, fuelUberLitersEst,
+      fuel: fuelChosen, fuelMethod: settings.useFuelByKm ? 'km' : 'boleta'
+    };
+  }, [entries, settings, bonus, vehicles, vehicleId, avgPricePerL]);
 
-  const chartData = entries.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(r=>({
-    date: r.date.slice(5),
-    netDay: Math.max(0, r.gross*(1-settings.tax) - r.fuelCLP - (r.hours*settings.maintPerHour)),
-    hours: r.hours,
-    trips: r.trips
-  }));
+  const chartData = entries.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(r=>{
+    const hours = Number(r.hours)||0;
+    const gross = Number(r.gross)||0;
+    const fuelVal = settings.incFuel ? ((Number(r.fuelCLP)||0) || ((Number(r.liters)||0)*(Number(r.pricePerL)||0))) : 0;
+    const taxVal = settings.incTax ? gross * settings.tax : 0;
+    const maintVal = settings.incMaint ? hours * settings.maintPerHour : 0;
+    const netDay = Math.max(0, gross - taxVal - fuelVal - maintVal);
+
+    // estimación de bencina por km
+    const kms = Math.max(0, (Number(r.odometerEnd)||0) - (Number(r.odometerStart)||0));
+    const veh = vehicles.find(v => v.id === (r.vehicleId || '')) || vehicles.find(v=>v.id===vehicleId);
+    const kmPerL = veh?.kmPerL || 0;
+    const litersEst = kmPerL>0 ? (kms / kmPerL) : 0;
+    const price = (Number(r.pricePerL)||0) || avgPricePerL;
+    const fuelCostEst = litersEst * (price||0);
+
+    return {
+      date: r.date.slice(5),
+      netDay,
+      hours: hours,
+      trips: Number(r.trips)||0,
+      fuelCostEst
+    };
+  });
 
   // helpers
-  const addEntry = ()=> setEntries(e=>[...e,{ id:uid(), date:todayISO(), hours:0, trips:0, gross:0, cash:0, fuelCLP:0, vehicleId }]);
+  const addEntry = ()=> setEntries(e=>[...e,{
+    id:uid(), date:todayISO(), hours:0, trips:0, gross:0, cash:0, fuelCLP:0,
+    odometerStart:0, odometerEnd:0, liters:0, pricePerL:0, station:"", vehicleId
+  }]);
   const rmEntry = (id:string)=> setEntries(e=>e.filter(x=>x.id!==id));
   const patchEntry = (id:string, patch:Partial<Entry>)=> setEntries(e=>e.map(x=>x.id===id?{...x,...patch}:x));
 
@@ -259,16 +439,35 @@ export default function App(){
 
       {/* KPIs */}
       <div className="kpi-grid" style={{marginTop:16}}>
-        <Kpi title="Neto real" icon={<Wallet size={16}/>} value={`CLP ${Math.round(totals.net).toLocaleString()}`} sub="Después de 14% + bencina + mantención"/>
+        <Kpi
+          title="Neto real"
+          icon={<Wallet size={16}/>} 
+          value={`CLP ${Math.round(totals.net).toLocaleString()}`}
+          sub={(() => {
+            const parts = [
+              settings.incTax ? '14%' : null,
+              settings.incFuel ? 'bencina' : null,
+              settings.incMaint ? 'mantención' : null,
+            ].filter(Boolean) as string[];
+            return parts.length ? `Después de ${parts.join(' + ')}` : 'Sin descuentos aplicados';
+          })()}
+        />
         <Kpi title="Neto / hora" icon={<Gauge size={16}/>} value={`CLP ${Math.round(totals.netPerHour).toLocaleString()}`} sub={`Horas: ${totals.hours.toFixed(1)} — Viajes: ${totals.trips}`}/>
         <Kpi title="Bonos" icon={<Target size={16}/>} value={`CLP ${totals.bonusAcc.toLocaleString()}`} sub="20/30/40/50 viajes"/>
-        <Costs fuel={totals.fuel} maint={totals.maint} tax={totals.tax}/>
+        <Kpi
+          title="Bencina (Uber)"
+          icon={<Fuel size={16}/>} 
+          value={`CLP ${Math.round(totals.fuelByKmCLP).toLocaleString()}`}
+          sub={`${totals.fuelUberLitersEst.toFixed(1)} L estimados`}
+        />
+        <Costs fuel={totals.fuel} maint={totals.maint} tax={totals.tax} fuelMethod={totals.fuelMethod}/>
       </div>
 
       {/* Tabs */}
       <div className="pill-tabs">
         <TabBtn active={tab==='dashboard'} onClick={()=>setTab('dashboard')}>Dashboard</TabBtn>
         <TabBtn active={tab==='data'} onClick={()=>setTab('data')}>Carga de datos</TabBtn>
+        <TabBtn active={tab==='fuel'} onClick={()=>setTab('fuel')}>Combustible</TabBtn>
         <TabBtn active={tab==='goals'} onClick={()=>setTab('goals')}>Metas</TabBtn>
         <TabBtn active={tab==='vehicles'} onClick={()=>setTab('vehicles')}>Vehículos</TabBtn>
         <TabBtn active={tab==='settings'} onClick={()=>setTab('settings')}>Ajustes</TabBtn>
@@ -305,6 +504,20 @@ export default function App(){
               </ResponsiveContainer>
             </div>
           </Card>
+          <Card>
+            <h3 style={{marginTop:0}}>Bencina (estimada) por día</h3>
+            <div style={{height:260}}>
+              <ResponsiveContainer>
+                <BarChart data={chartData} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip formatter={(v)=>`CLP ${Number(v).toLocaleString()}`} />
+                  <Bar dataKey="fuelCostEst" fill="#60a5fa" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
         </div>
       )}
 
@@ -320,29 +533,113 @@ export default function App(){
             </div>
           </div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:14}}>
-            <thead><tr>
-              <th>Fecha</th><th>Horas</th><th>Viajes</th><th>Bruto</th><th>Efectivo</th><th>Bencina</th><th></th>
-            </tr></thead>
+            <thead>
+              <tr>
+                <th colSpan={5}>Jornada</th>
+                <th colSpan={3}>Ingresos</th>
+                <th></th>
+              </tr>
+              <tr>
+                <th>Fecha</th><th>Horas</th><th>Viajes</th><th>Km inicio</th><th>Km final</th>
+                <th>Bruto</th><th>Efectivo</th><th>Bencina (est.)</th>
+                <th></th>
+              </tr>
+            </thead>
             <tbody>
               {entries.map(r=>(
                 <tr key={r.id}>
+                  {/* Jornada */}
                   <td><input type="date" value={r.date} onChange={e=>patchEntry(r.id,{date:e.target.value})}/></td>
-                  <td>
-                    <InputNum step={0.1} value={r.hours} onChange={(v)=>patchEntry(r.id,{hours:v})} />
+                  <td><InputNum step={0.1} value={r.hours} onChange={(v)=>patchEntry(r.id,{hours:v})} /></td>
+                  <td><InputNum value={r.trips} onChange={(v)=>patchEntry(r.id,{trips:v})} /></td>
+                  <td><InputNum value={r.odometerStart||0} onChange={(v)=>patchEntry(r.id,{odometerStart:v})} /></td>
+                  <td><InputNum value={r.odometerEnd||0} onChange={(v)=>patchEntry(r.id,{odometerEnd:v})} /></td>
+
+                  {/* Ingresos */}
+                  <td><InputNum value={r.gross} onChange={(v)=>patchEntry(r.id,{gross:v})} /></td>
+                  <td><InputNum value={r.cash} onChange={(v)=>patchEntry(r.id,{cash:v})} /></td>
+                  <td style={{color:'#6b7280'}}>
+                    {(() => {
+                      const kms = Math.max(0, (Number(r.odometerEnd)||0) - (Number(r.odometerStart)||0));
+                      const veh = vehicles.find(v => v.id === (r.vehicleId || '')) || vehicles.find(v=>v.id===vehicleId);
+                      const kmPerL = veh?.kmPerL || 0;
+                      const litersEst = kmPerL>0 ? (kms / kmPerL) : 0;
+                      const price = (Number(r.pricePerL)||0) || avgPricePerL || 0;
+                      const clp = litersEst * price;
+                      return `CLP ${Math.round(clp).toLocaleString()}`;
+                    })()}
                   </td>
-                  <td>
-                    <InputNum value={r.trips} onChange={(v)=>patchEntry(r.id,{trips:v})} />
+
+                  {/* acciones */}
+                  <td style={{textAlign:'right'}}>
+                    <button className="btn" onClick={()=>rmEntry(r.id)} title="Eliminar"><Trash2 size={16}/></button>
                   </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {tab==='fuel' && (
+        <Card>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,gap:12,flexWrap:"wrap"}}>
+            <div style={{display:"flex",gap:12}}>
+              <button className="btn" onClick={addEntry}><PlusCircle size={16}/> Agregar día</button>
+              <select value={vehicleId} onChange={(e)=>setVehicleId(e.target.value)} style={{padding:"8px 10px",border:"1px solid #e5e7eb",borderRadius:10}}>
+                <option value="">Sin vehículo</option>
+                {vehicles.map(v=>(<option key={v.id} value={v.id}>{v.label}</option>))}
+              </select>
+            </div>
+          </div>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:14}}>
+            <thead>
+              <tr>
+                <th>Fecha</th><th>Litros</th><th>$/L</th><th>Total</th><th>Estación</th><th>Boleta</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map(r=> (
+                <tr key={r.id}>
+                  <td><input type="date" value={r.date} onChange={e=>patchEntry(r.id,{date:e.target.value})}/></td>
+                  <td><InputNum value={r.liters||0} onChange={(v)=>{ const next:any={liters:v}; const ppl=Number(r.pricePerL)||0; if(ppl>0) next.fuelCLP=Math.round(v*ppl); patchEntry(r.id,next); }}/></td>
+                  <td><InputNum value={r.pricePerL||0} onChange={(v)=>{ const next:any={pricePerL:v}; const lit=Number(r.liters)||0; if(lit>0) next.fuelCLP=Math.round(lit*v); patchEntry(r.id,next); }}/></td>
+                  <td><InputNum value={r.fuelCLP} onChange={(v)=>patchEntry(r.id,{fuelCLP:v})}/></td>
+                  <td><input value={r.station||''} onChange={e=>patchEntry(r.id,{station:e.target.value})} placeholder="Copec, Shell…"/></td>
                   <td>
-                    <InputNum value={r.gross} onChange={(v)=>patchEntry(r.id,{gross:v})} />
+                    <label className="btn">
+                      Subir boleta
+                      <input type="file" accept="image/*,.jpg,.jpeg,.png,.webp" style={{display:'none'}}
+                        onChange={async (e)=>{
+                          const file=e.target.files?.[0]; if(!file) return;
+                          try{
+                            const text=await ocrReceipt(file);
+                            const info=parseReceipt(text);
+                            const resumen=
+                              `OCR listo\n`+
+                              (info.totalCLP?`Total (CLP): ${Math.round(info.totalCLP).toLocaleString()}\n`: '')+
+                              (info.litros?`Litros: ${info.litros}\n`: '')+
+                              (info.precioPorLitro?`$/L: ${info.precioPorLitro}\n`: '')+
+                              (info.fechaISO?`Fecha: ${info.fechaISO}\n`: '')+
+                              (info.estacion?`Estación: ${info.estacion}\n`: '');
+                            if(!info.totalCLP && !info.litros && !info.precioPorLitro) alert(resumen);
+                            const patch: Partial<Entry> = {};
+                            if (info.fechaISO) patch.date = info.fechaISO;
+                            if (info.litros) patch.liters = info.litros;
+                            if (info.precioPorLitro) patch.pricePerL = info.precioPorLitro;
+                            if (info.totalCLP) patch.fuelCLP = Math.round(info.totalCLP);
+                            else if ((info.litros||0) > 0 && (info.precioPorLitro||0) > 0) patch.fuelCLP = Math.round((info.litros||0)*(info.precioPorLitro||0));
+                            if (info.estacion) patch.station = info.estacion;
+                            patchEntry(r.id, patch);
+                          }catch(err){ console.error('OCR error',err); alert('No pude leer la boleta. Intenta con una foto nítida.'); }
+                          finally{ e.currentTarget.value=''; }
+                        }}
+                      />
+                    </label>
                   </td>
-                  <td>
-                    <InputNum value={r.cash} onChange={(v)=>patchEntry(r.id,{cash:v})} />
+                  <td style={{textAlign:'right'}}>
+                    <button className="btn" onClick={()=>rmEntry(r.id)} title="Eliminar"><Trash2 size={16}/></button>
                   </td>
-                  <td>
-                    <InputNum value={r.fuelCLP} onChange={(v)=>patchEntry(r.id,{fuelCLP:v})} />
-                  </td>
-                  <td style={{textAlign:'right'}}><button className="btn" onClick={()=>rmEntry(r.id)} title="Eliminar"><Trash2 size={16}/></button></td>
                 </tr>
               ))}
             </tbody>
@@ -418,12 +715,20 @@ export default function App(){
                       value={v.make || ''}
                       onChange={e=>{
                         const make = e.target.value;
-                        setVehicles(list=>list.map(x=>x.id===v.id ? {
-                          ...x,
-                          make,
-                          // si cambia la marca y el modelo actual no pertenece, lo vaciamos
-                          model: make && x.model && !(VEH_DB[make]?.includes(x.model)) ? '' : x.model
-                        } : x));
+                        setVehicles(list=>list.map(x=>{
+                          if (x.id!==v.id) return x;
+                          let next:any = { ...x, make };
+                          // reset modelo si no pertenece
+                          if (make && next.model && !(VEH_DB[make]?.includes(next.model))) {
+                            next.model = '';
+                          }
+                          // si NO está en manual, intentar autocompletar desde specs
+                          if (!next.manualSpecs && make && next.model) {
+                            const spec = VEH_SPECS[make]?.[next.model];
+                            if (spec) { next.engineL = spec.engineL; next.kmPerL = spec.kmPerL; }
+                          }
+                          return next;
+                        }));
                       }}
                       placeholder="Ej: Chery, Chevrolet, Toyota…"
                     />
@@ -438,7 +743,27 @@ export default function App(){
                     <input
                       list={`models-${v.id}`}
                       value={v.model || ''}
-                      onChange={e=>setVehicles(list=>list.map(x=>x.id===v.id ? {...x, model: e.target.value} : x))}
+                      onChange={e=>{
+                        const model = e.target.value;
+                        setVehicles(list=>list.map(x=>{
+                          if (x.id!==v.id) return x;
+                          let next:any = { ...x, model };
+                          if (!next.manualSpecs) {
+                            const spec = VEH_SPECS[next.make || '']?.[model];
+                            if (spec) { next.engineL = spec.engineL; next.kmPerL = spec.kmPerL; }
+                          }
+                          return next;
+                        }));
+                      }}
+                      onBlur={e=>{
+                        const model = e.target.value;
+                        setVehicles(list=>list.map(x=>{
+                          if (x.id!==v.id) return x;
+                          if (x.manualSpecs) return { ...x, model };
+                          const spec = VEH_SPECS[x.make || '']?.[model];
+                          return spec ? { ...x, model, engineL: spec.engineL, kmPerL: spec.kmPerL } : { ...x, model };
+                        }));
+                      }}
                       placeholder={v.make ? 'Escribe modelo…' : 'Primero elige la marca'}
                       disabled={!v.make}
                     />
@@ -449,10 +774,37 @@ export default function App(){
                     </datalist>
                   </div>
                   <div style={{gridColumn:"1 / -1"}}>
+                    <label style={{display:'flex',alignItems:'center',gap:8}}>
+                      <input type="checkbox" checked={!!v.manualSpecs} onChange={e=>setVehicles(list=>list.map(x=>x.id===v.id?{...x,manualSpecs:e.target.checked}:x))}/>
+                      Editar motor/rendimiento manualmente
+                    </label>
+                  </div>
+                  <div>
+                    <label style={{color:'#6b7280',fontSize:12}}>Motor (L)</label>
+                    <input type="number" step="0.1" value={v.engineL||''} disabled={!v.manualSpecs} onChange={e=>setVehicles(list=>list.map(x=>x.id===v.id?{...x,engineL:Number(e.target.value)}:x))}/>
+                  </div>
+                  <div>
+                    <label style={{color:'#6b7280',fontSize:12}}>Rendimiento (km/L)</label>
+                    <input type="number" step="0.1" value={v.kmPerL||''} disabled={!v.manualSpecs} onChange={e=>setVehicles(list=>list.map(x=>x.id===v.id?{...x,kmPerL:Number(e.target.value)}:x))}/>
+                  </div>
+                  <div style={{gridColumn:"1 / -1", color:'#6b7280', fontSize:12}}>
+                    {v.manualSpecs ? 'Ingresando especificaciones manualmente.' : 'Especificaciones cargadas automáticamente al elegir marca y modelo.'}
+                  </div>
+                  <div style={{gridColumn:"1 / -1"}}>
                     <label style={{color:"#6b7280",fontSize:12}}>Notas</label>
                     <input value={v.notes||''} onChange={e=>setVehicles(list=>list.map(x=>x.id===v.id?{...x,notes:e.target.value}:x))}/>
                   </div>
                 </div>
+                {(() => {
+                  const current = entries.find(en => en.vehicleId === v.id);
+                  const kms = current && current.odometerEnd && current.odometerStart ? Math.max(0, (current.odometerEnd||0) - (current.odometerStart||0)) : 0;
+                  const estLitros = v.kmPerL && v.kmPerL>0 ? (kms / v.kmPerL) : 0;
+                  return kms>0 && v.kmPerL ? (
+                    <div style={{marginTop:8, color:'#6b7280', fontSize:12}}>
+                      Estimado jornada: {kms.toFixed(1)} km ≈ {estLitros.toFixed(2)} L · ({v.kmPerL} km/L)
+                    </div>
+                  ) : null;
+                })()}
                 <div style={{display:"flex",justifyContent:"space-between",marginTop:8,alignItems:"center"}}>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
                     <label style={{color:"#6b7280"}}>Activo:</label>
@@ -490,6 +842,12 @@ export default function App(){
               <label style={{display:"flex",gap:8,alignItems:"center"}}>
                 <input type="checkbox" checked={settings.incMaint} onChange={e=>setSettings({...settings, incMaint: e.target.checked})}/>
                 Incluir mantención/h
+              </label>
+            </div>
+            <div style={{gridColumn:"1 / -1", display:"flex", gap:12, alignItems:'center'}}>
+              <label style={{display:'flex',gap:8,alignItems:'center'}}>
+                <input type="checkbox" checked={settings.useFuelByKm} onChange={e=>setSettings({...settings, useFuelByKm: e.target.checked})}/>
+                Usar costo de bencina estimado por km (si desactivas, se usa boleta)
               </label>
             </div>
             <div style={{gridColumn:"1 / -1"}}>
@@ -530,10 +888,11 @@ function Kpi({title, icon, value, sub}:{title:string; icon:React.ReactNode; valu
     </Card>
   );
 }
-function Costs({fuel, maint, tax}:{fuel:number; maint:number; tax:number}) {
+function Costs({fuel, maint, tax, fuelMethod}:{fuel:number; maint:number; tax:number; fuelMethod?: 'km'|'boleta'}) {
   return (
     <Card>
       <div style={{display:"flex",alignItems:"center",gap:6,color:"#6b7280",fontSize:12}}><Fuel size={16}/> Costos</div>
+      <div style={{color:'#6b7280',fontSize:11,marginTop:2}}>Bencina por: {fuelMethod==='km' ? 'km (estimado)' : 'boleta'}</div>
       <Row k="Bencina" v={`CLP ${Math.round(fuel).toLocaleString()}`}/>
       <Row k="Mantención" v={`CLP ${Math.round(maint).toLocaleString()}`}/>
       <Row k="Impuesto" v={`CLP ${Math.round(tax).toLocaleString()}`}/>
