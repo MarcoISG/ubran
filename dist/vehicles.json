@@ -1,0 +1,8 @@
+{
+  "Chery": ["Tiggo 2", "Tiggo 3", "Tiggo 4", "Arrizo 5"],
+  "Chevrolet": ["Spark", "Onix", "Sail", "Cruze", "Corvette"],
+  "Toyota": ["Yaris", "Corolla", "Etios", "RAV4", "Hilux"],
+  "Hyundai": ["Grand i10", "Accent", "Elantra", "Tucson"],
+  "Kia": ["Morning", "Rio", "Cerato", "Sportage"],
+  "Nissan": ["March", "Versa", "Sentra", "Kicks"]
+}

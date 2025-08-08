@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ubran</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#e9ecef" />
+
+    <style>
+      /* Base button */
+      .btn{ background:#fff; border:1px solid #e5e7eb; padding:8px 12px; border-radius:10px; cursor:pointer; }
+      .btn:hover{ border-color:#cbd5e1; }
+
+      /* Modern pill tabs */
+      .pill-tabs{ display:flex; gap:8px; flex-wrap:nowrap; overflow-x:auto; margin-top:12px; }
+      .pill{ padding:8px 14px; border:1px solid #e5e7eb; border-radius:999px; background:#f8fafc; color:#111827; cursor:pointer; transition:all .15s ease; white-space:nowrap; }
+      .pill:hover{ border-color:#d1d5db; background:#f3f4f6; }
+      .pill--active{ background:#10b981; color:#fff; border-color:#10b981; box-shadow:0 6px 14px rgba(16,185,129,.22); }
+
+      /* Softer cards */
+      .card{ background:#fff; border:1px solid #eef2f7; border-radius:14px; box-shadow:0 8px 24px rgba(17,24,39,.06); }
+
+      /* --- Responsive grids estilo Bootstrap --- */
+      /* Desktop por defecto */
+      .kpi-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+      .charts-grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+
+      /* ≤ 1024px (md/lg) */
+      @media (max-width: 1024px){
+        .kpi-grid{ grid-template-columns:repeat(2,1fr); }
+        .charts-grid{ grid-template-columns:1fr; }
+      }
+
+      /* ≤ 640px (mobile) */
+      @media (max-width: 640px){
+        .kpi-grid{ grid-template-columns:1fr; }
+        .pill-tabs{ gap:6px; }
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-BWDZLCFz.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

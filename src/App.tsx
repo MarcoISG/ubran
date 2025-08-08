@@ -1,7 +1,18 @@
+
 import React, { useMemo, useState } from "react";
 import { Wallet, Gauge, Target, Fuel, Upload, Download, PlusCircle, Trash2, Car, Goal as GoalIcon, MapPin } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, Bar } from "recharts";
 import Tesseract from 'tesseract.js';
+
+/*
+TODO – pendientes a integrar (según solicitud del usuario):
+  • 📌 Formulario completo para añadir/editar gastos fijos.
+  • 📌 Lógica para calcular el total mensual y mostrar la barra de progreso como en Metas.
+  • 📌 Separación del módulo de gasolina con carga automática de rendimiento según el vehículo.
+  • 📌 Cálculo del gasto de gasolina en el Dashboard usando km recorridos y rendimiento.
+
+Si quieres, puedo entrar ahora mismo al código y dejar todo eso armado de una vez para que luego solo lo subas.
+*/
 
 // Helper numeric input with placeholder, avoids persistent 0 by using text input and internal buffer
 function InputNum({
@@ -152,6 +163,34 @@ type Goal = {
   deadline?: string;
 }
 
+
+type FixedExpense = {
+  id: string;
+  name: string;
+  amountCLP: number;   // cuota mensual objetivo
+  paidCLP: number;     // pagado este mes
+  dueDay?: number;     // día de vencimiento (1-31)
+};
+
+type Totals = {
+  hours: number;
+  trips: number;
+  gross: number;
+  cash: number;
+  tax: number;
+  postTax: number;
+  maint: number;
+  net: number;
+  bonusAcc: number;
+  netPerHour: number;
+  netPerTrip: number;
+  fuelByReceipts: number;
+  fuelByKmCLP: number;
+  fuelUberLitersEst: number;
+  fuel: number;
+  fuelMethod: 'km' | 'boleta';
+};
+
 const uid = ()=>Math.random().toString(36).slice(2,9);
 const todayISO = ()=>new Date().toISOString().slice(0,10);
 
@@ -182,6 +221,7 @@ export default function App(){
   const [vehicles, setVehicles] = useLocalState<Vehicle[]>("ubran_vehicles", []);
   const [vehicleId, setVehicleId] = useLocalState<string>("ubran_current_vehicle","");
   const [goals, setGoals] = useLocalState<Goal[]>("ubran_goals", []);
+  const [fixed, setFixed] = useLocalState<FixedExpense[]>("ubran_fixed", []);
   const [bonus, setBonus] = useLocalState("ubran_bonus", DEFAULT_BONUS);
   const [settings, setSettings] = useLocalState("ubran_settings", DEFAULT_SETTINGS);
   const VEH_DB: Record<string, string[]> = {
@@ -216,7 +256,7 @@ export default function App(){
     "DFSK": ["Glory 560", "Glory 580"],
     "Volvo": ["S40", "S60", "XC40", "XC60"]
   };
-  const [tab, setTab] = useState<"dashboard"|"data"|"fuel"|"goals"|"vehicles"|"settings">("dashboard");
+  const [tab, setTab] = useState<"dashboard"|"data"|"fuel"|"fixed"|"goals"|"vehicles"|"settings">("dashboard");
 
   const avgPricePerL = useMemo(()=>{
     const vals = entries.map(e=>Number(e.pricePerL)||0).filter(n=>n>0);
@@ -264,7 +304,7 @@ export default function App(){
     }
   };
 
-  const totals = useMemo(()=>{
+  const totals = useMemo<Totals>(()=>{
     const hours = entries.reduce((s,r)=>s+(Number(r.hours)||0),0);
     const trips = entries.reduce((s,r)=>s+(Number(r.trips)||0),0);
     const gross = entries.reduce((s,r)=>s+(Number(r.gross)||0),0);
@@ -313,7 +353,7 @@ export default function App(){
     return { hours, trips, gross, cash, tax, postTax, maint, net, bonusAcc, netPerHour, netPerTrip,
       // fuel aggregates
       fuelByReceipts, fuelByKmCLP, fuelUberLitersEst,
-      fuel: fuelChosen, fuelMethod: settings.useFuelByKm ? 'km' : 'boleta'
+      fuel: fuelChosen, fuelMethod: (settings.useFuelByKm ? 'km' : 'boleta') as 'km'|'boleta'
     };
   }, [entries, settings, bonus, vehicles, vehicleId, avgPricePerL]);
 
@@ -460,7 +500,7 @@ export default function App(){
           value={`CLP ${Math.round(totals.fuelByKmCLP).toLocaleString()}`}
           sub={`${totals.fuelUberLitersEst.toFixed(1)} L estimados`}
         />
-        <Costs fuel={totals.fuel} maint={totals.maint} tax={totals.tax} fuelMethod={totals.fuelMethod}/>
+        <Costs fuel={totals.fuel} maint={totals.maint} tax={totals.tax} fuelMethod={totals.fuelMethod as 'km'|'boleta'}/>
       </div>
 
       {/* Tabs */}
@@ -468,10 +508,64 @@ export default function App(){
         <TabBtn active={tab==='dashboard'} onClick={()=>setTab('dashboard')}>Dashboard</TabBtn>
         <TabBtn active={tab==='data'} onClick={()=>setTab('data')}>Carga de datos</TabBtn>
         <TabBtn active={tab==='fuel'} onClick={()=>setTab('fuel')}>Combustible</TabBtn>
+        <TabBtn active={tab==='fixed'} onClick={()=>setTab('fixed')}>Fijos</TabBtn>
         <TabBtn active={tab==='goals'} onClick={()=>setTab('goals')}>Metas</TabBtn>
         <TabBtn active={tab==='vehicles'} onClick={()=>setTab('vehicles')}>Vehículos</TabBtn>
         <TabBtn active={tab==='settings'} onClick={()=>setTab('settings')}>Ajustes</TabBtn>
       </div>
+
+      {tab==='fixed' && (
+        <Card>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <h3 style={{margin:0}}>Gastos fijos (mensuales)</h3>
+            <button className="btn" onClick={()=>setFixed(list=>[...list,{id:uid(), name:"Nuevo gasto", amountCLP:0, paidCLP:0, dueDay:1}])}><PlusCircle size={16}/> Nuevo gasto</button>
+          </div>
+
+          <div style={{display:"grid",gap:12,marginTop:8}}>
+            {fixed.map(g=>{
+              const rest = Math.max(0, g.amountCLP - g.paidCLP);
+              const progress = g.amountCLP>0 ? Math.min(100, (g.paidCLP/g.amountCLP)*100) : 0;
+              const horas = totals.netPerHour>0 ? rest / totals.netPerHour : 0;
+              const viajes = totals.netPerTrip>0 ? rest / totals.netPerTrip : 0;
+              return (
+                <Card key={g.id}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8,alignItems:"center"}}>
+                    <input value={g.name} onChange={e=>setFixed(list=>list.map(x=>x.id===g.id?{...x, name:e.target.value}:x))}/>
+                    <button className="btn" onClick={()=>setFixed(list=>list.filter(x=>x.id!==g.id))}><Trash2 size={16}/> Eliminar</button>
+                  </div>
+
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginTop:8}}>
+                    <div>
+                      <label style={{color:"#6b7280",fontSize:12}}>Monto mensual (CLP)</label>
+                      <input type="number" value={g.amountCLP} onChange={e=>setFixed(list=>list.map(x=>x.id===g.id?{...x, amountCLP:Number(e.target.value)}:x))}/>
+                    </div>
+                    <div>
+                      <label style={{color:"#6b7280",fontSize:12}}>Pagado este mes (CLP)</label>
+                      <input type="number" value={g.paidCLP} onChange={e=>setFixed(list=>list.map(x=>x.id===g.id?{...x, paidCLP:Number(e.target.value)}:x))}/>
+                    </div>
+                    <div>
+                      <label style={{color:"#6b7280",fontSize:12}}>Día de vencimiento</label>
+                      <input type="number" min={1} max={31} value={g.dueDay||''} onChange={e=>setFixed(list=>list.map(x=>x.id===g.id?{...x, dueDay:Number(e.target.value)}:x))}/>
+                    </div>
+                    <div style={{display:'flex',gap:8,alignItems:'flex-end'}}>
+                      <button className="btn" onClick={()=>setFixed(list=>list.map(x=>x.id===g.id?{...x, paidCLP:0}:x))}>Reiniciar mes</button>
+                    </div>
+                  </div>
+
+                  <div style={{height:8,border:"1px solid #e5e7eb",borderRadius:999,overflow:"hidden",background:"#f7f8fa",marginTop:8}}>
+                    <div style={{width:`${progress}%`,height:"100%",background:"linear-gradient(90deg,#0ea5e9,#38bdf8)"}}/>
+                  </div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8}}>
+                    <Pill>Falta: CLP {Math.round(rest).toLocaleString()}</Pill>
+                    <Pill>Horas: {horas>0? horas.toFixed(1): "—"}</Pill>
+                    <Pill>Viajes: {viajes>0? viajes.toFixed(0): "—"}</Pill>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {tab==='dashboard' && (
         <div className="charts-grid">
