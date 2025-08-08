@@ -266,7 +266,7 @@ export default function App(){
       </div>
 
       {/* Tabs */}
-      <div className="tabs">
+      <div className="pill-tabs">
         <TabBtn active={tab==='dashboard'} onClick={()=>setTab('dashboard')}>Dashboard</TabBtn>
         <TabBtn active={tab==='data'} onClick={()=>setTab('data')}>Carga de datos</TabBtn>
         <TabBtn active={tab==='goals'} onClick={()=>setTab('goals')}>Metas</TabBtn>
@@ -519,7 +519,7 @@ export default function App(){
 
 /* --- UI helpers --- */
 function Card({children}:{children:React.ReactNode}) {
-  return <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:12,padding:14,boxShadow:"0 6px 18px rgba(0,0,0,.06)"}}>{children}</div>;
+  return <div className="card" style={{padding:14}}>{children}</div>;
 }
 function Kpi({title, icon, value, sub}:{title:string; icon:React.ReactNode; value:string; sub:string}) {
   return (
@@ -561,5 +561,7 @@ function Pill({children}:{children:React.ReactNode}) {
   );
 }
 function TabBtn({active, children, onClick}:{active:boolean; children:React.ReactNode; onClick:()=>void}) {
-  return <button onClick={onClick} style={{padding:"8px 12px",border:"1px solid "+(active?"#10b981":"#e5e7eb"),borderRadius:10,background:active?"#eefcf6":"#fff",cursor:"pointer"}}>{children}</button>;
+  return (
+    <button onClick={onClick} className={`pill ${active ? 'pill--active' : ''}`}>{children}</button>
+  );
 }
