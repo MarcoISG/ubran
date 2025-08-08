@@ -689,16 +689,81 @@ export default function App(){
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:14}}>
             <thead>
               <tr>
-                <th>Fecha</th><th>Litros</th><th>$/L</th><th>Total</th><th>Estación</th><th>Boleta</th><th></th>
+                <th>Fecha</th><th>Km inicio</th><th>Km final</th><th>$/L</th><th>Total</th><th>Litros</th><th>Estación</th><th>Boleta</th><th></th>
               </tr>
             </thead>
             <tbody>
               {entries.map(r=> (
                 <tr key={r.id}>
                   <td><input type="date" value={r.date} onChange={e=>patchEntry(r.id,{date:e.target.value})}/></td>
-                  <td><InputNum value={r.liters||0} onChange={(v)=>{ const next:any={liters:v}; const ppl=Number(r.pricePerL)||0; if(ppl>0) next.fuelCLP=Math.round(v*ppl); patchEntry(r.id,next); }}/></td>
-                  <td><InputNum value={r.pricePerL||0} onChange={(v)=>{ const next:any={pricePerL:v}; const lit=Number(r.liters)||0; if(lit>0) next.fuelCLP=Math.round(lit*v); patchEntry(r.id,next); }}/></td>
-                  <td><InputNum value={r.fuelCLP} onChange={(v)=>patchEntry(r.id,{fuelCLP:v})}/></td>
+                  <td>
+                    <InputNum value={r.odometerStart||0} onChange={(v)=>{
+                      const next:any = { odometerStart: v };
+                      const veh = vehicles.find(vh => vh.id === (r.vehicleId || '')) || vehicles.find(vh=>vh.id===vehicleId);
+                      const kmPerL = veh?.kmPerL || 0;
+                      const kms = Math.max(0, (Number(r.odometerEnd)||0) - v);
+                      if (kmPerL>0 && (Number(r.liters)||0)===0) {
+                        const estLit = kms / kmPerL;
+                        next.liters = estLit;
+                        const ppl = Number(r.pricePerL)||0; if (ppl>0) next.fuelCLP = Math.round(estLit * ppl);
+                      }
+                      patchEntry(r.id,next);
+                    }}/>
+                  </td>
+                  <td>
+                    <InputNum value={r.odometerEnd||0} onChange={(v)=>{
+                      const next:any = { odometerEnd: v };
+                      const veh = vehicles.find(vh => vh.id === (r.vehicleId || '')) || vehicles.find(vh=>vh.id===vehicleId);
+                      const kmPerL = veh?.kmPerL || 0;
+                      const kms = Math.max(0, v - (Number(r.odometerStart)||0));
+                      if (kmPerL>0 && (Number(r.liters)||0)===0) {
+                        const estLit = kms / kmPerL;
+                        next.liters = estLit;
+                        const ppl = Number(r.pricePerL)||0; if (ppl>0) next.fuelCLP = Math.round(estLit * ppl);
+                      }
+                      patchEntry(r.id,next);
+                    }}/>
+                  </td>
+                  {/* $/L */}
+                  <td>
+                    <InputNum value={r.pricePerL||0} onChange={(v)=>{
+                      const next:any = { pricePerL: v };
+                      const total = Number(r.fuelCLP)||0;
+                      const liters = Number(r.liters)||0;
+                      // Si hay total y (no hay litros o vienen de odómetro), calcula litros = total / $/L
+                      if (v>0 && total>0 && liters===0) {
+                        next.liters = total / v;
+                      }
+                      // Si ya hay litros, actualiza total = litros * $/L
+                      if (v>0 && liters>0) {
+                        next.fuelCLP = Math.round(liters * v);
+                      }
+                      patchEntry(r.id,next);
+                    }}/>
+                  </td>
+                  {/* Total */}
+                  <td>
+                    <InputNum value={r.fuelCLP} onChange={(v)=>{
+                      const next:any = { fuelCLP: v };
+                      const ppl = Number(r.pricePerL)||0;
+                      const liters = Number(r.liters)||0;
+                      // Si hay $/L y no hay litros, calcula litros = total / $/L
+                      if (ppl>0 && liters===0) {
+                        next.liters = v / ppl;
+                      }
+                      patchEntry(r.id,next);
+                    }}/>
+                  </td>
+                  {/* Litros */}
+                  <td>
+                    <InputNum value={r.liters||0} onChange={(v)=>{
+                      const next:any = { liters: v };
+                      const ppl = Number(r.pricePerL)||0;
+                      // Si hay $/L, recalcula total = litros * $/L
+                      if (ppl>0) next.fuelCLP = Math.round(v * ppl);
+                      patchEntry(r.id,next);
+                    }}/>
+                  </td>
                   <td><input value={r.station||''} onChange={e=>patchEntry(r.id,{station:e.target.value})} placeholder="Copec, Shell…"/></td>
                   <td>
                     <label className="btn">
