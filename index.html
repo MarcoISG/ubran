@@ -339,6 +339,42 @@
       /* Misc visual polish */
       .badge { border-color: var(--color-border); }
       .btn { border-color: var(--color-border); }
+      /* ===== MOBILE FIX PACK: spacing & touch targets ===== */
+      @media (max-width: 640px){
+        /* Bigger tap targets to avoid overlaps */
+        input, select, textarea { font-size: 16px; min-height: 44px; }
+
+        /* Checkbox & radio: larger and separated from text */
+        input[type="checkbox"], input[type="radio"]{
+          transform: scale(1.25);
+          margin-right: 10px;
+          margin-top: 2px;
+          flex: 0 0 auto;
+        }
+
+        /* Labels with checkbox/radio: force proper wrapping */
+        label{ display: flex; align-items: flex-start; gap: 10px; line-height: 1.3; }
+        label > span{ display:inline-block; }
+
+        /* Avoid pills/tabs overlapping content */
+        .pill-tabs{ margin-bottom: 8px; padding-bottom: 8px; }
+
+        /* Card inner spacing */
+        .card{ padding: 16px; }
+        .card + .card{ margin-top: 14px; }
+
+        /* Table cells: allow wrapping and keep last column visible */
+        .table td{ white-space: normal; }
+        .table-wrap{ padding-bottom: 2px; }
+        .table th:last-child, .table td:last-child{ position: sticky; right: 0; background: var(--color-bg-card); }
+
+        /* Buttons inside table cells shouldn't collapse */
+        .table-row-actions{ gap: 10px; }
+      }
+
+      /* Extra: prevent long texts from pushing controls */
+      .nowrap{ white-space: nowrap; }
+      .wrap{ white-space: normal; }
     </style>
   </head>
   <body>
