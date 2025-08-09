@@ -204,7 +204,6 @@ type OcrState = {
     estacion?: string;
   };
 };
-const [ocr, setOcr] = React.useState<Record<string, OcrState>>({});
 
 const uid = ()=>Math.random().toString(36).slice(2,9);
 const todayISO = ()=>new Date().toISOString().slice(0,10);
@@ -273,6 +272,7 @@ export default function App(){
     "Volvo": ["S40", "S60", "XC40", "XC60"]
   };
   const [tab, setTab] = useState<"dashboard"|"data"|"fuel"|"fixed"|"goals"|"vehicles"|"settings">("dashboard");
+  const [ocr, setOcr] = useState<Record<string, OcrState>>({});
 
   const avgPricePerL = useMemo(()=>{
     const vals = entries.map(e=>Number(e.pricePerL)||0).filter(n=>n>0);
