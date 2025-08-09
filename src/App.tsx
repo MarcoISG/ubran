@@ -192,6 +192,19 @@ type Totals = {
   fixedRemaining: number;
   fixedAdj: number;
 };
+// UI state for OCR feedback per entry id
+type OcrState = {
+  loading?: boolean;
+  error?: string;
+  info?: {
+    totalCLP?: number;
+    litros?: number;
+    precioPorLitro?: number;
+    fechaISO?: string;
+    estacion?: string;
+  };
+};
+const [ocr, setOcr] = React.useState<Record<string, OcrState>>({});
 
 const uid = ()=>Math.random().toString(36).slice(2,9);
 const todayISO = ()=>new Date().toISOString().slice(0,10);
@@ -637,7 +650,8 @@ export default function App(){
               </select>
             </div>
           </div>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:14}}>
+          <div className="table-wrap">
+            <table className="table" style={{fontSize:14}}>
             <thead>
               <tr>
                 <th colSpan={5}>Jornada</th>
@@ -682,7 +696,8 @@ export default function App(){
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         </Card>
       )}
 
@@ -697,7 +712,8 @@ export default function App(){
               </select>
             </div>
           </div>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:14}}>
+          <div className="table-wrap">
+            <table className="table" style={{fontSize:14}}>
             <thead>
               <tr>
                 <th>Fecha</th><th>Km inicio</th><th>Km final</th><th>$/L</th><th>Total</th><th>Litros</th><th>Estación</th><th>Boleta</th><th></th>
@@ -781,31 +797,45 @@ export default function App(){
                       Subir boleta
                       <input type="file" accept="image/*,.jpg,.jpeg,.png,.webp" style={{display:'none'}}
                         onChange={async (e)=>{
-                          const file=e.target.files?.[0]; if(!file) return;
-                          try{
-                            const text=await ocrReceipt(file);
-                            const info=parseReceipt(text);
-                            const resumen=
-                              `OCR listo\n`+
-                              (info.totalCLP?`Total (CLP): ${Math.round(info.totalCLP).toLocaleString()}\n`: '')+
-                              (info.litros?`Litros: ${info.litros}\n`: '')+
-                              (info.precioPorLitro?`$/L: ${info.precioPorLitro}\n`: '')+
-                              (info.fechaISO?`Fecha: ${info.fechaISO}\n`: '')+
-                              (info.estacion?`Estación: ${info.estacion}\n`: '');
-                            if(!info.totalCLP && !info.litros && !info.precioPorLitro) alert(resumen);
-                            const patch: Partial<Entry> = {};
-                            if (info.fechaISO) patch.date = info.fechaISO;
-                            if (info.litros) patch.liters = info.litros;
-                            if (info.precioPorLitro) patch.pricePerL = info.precioPorLitro;
-                            if (info.totalCLP) patch.fuelCLP = Math.round(info.totalCLP);
-                            else if ((info.litros||0) > 0 && (info.precioPorLitro||0) > 0) patch.fuelCLP = Math.round((info.litros||0)*(info.precioPorLitro||0));
-                            if (info.estacion) patch.station = info.estacion;
-                            patchEntry(r.id, patch);
-                          }catch(err){ console.error('OCR error',err); alert('No pude leer la boleta. Intenta con una foto nítida.'); }
-                          finally{ e.currentTarget.value=''; }
-                        }}
+  const file=e.target.files?.[0]; if(!file) return;
+  setOcr(prev=>({...prev, [r.id]: { loading:true, error: undefined, info: undefined }}));
+  try{
+    const text=await ocrReceipt(file);
+    const info=parseReceipt(text);
+    const patch: Partial<Entry> = {};
+    if (info.fechaISO) patch.date = info.fechaISO;
+    if (info.litros) patch.liters = info.litros;
+    if (info.precioPorLitro) patch.pricePerL = info.precioPorLitro;
+    if (info.totalCLP) patch.fuelCLP = Math.round(info.totalCLP);
+    else if ((info.litros||0) > 0 && (info.precioPorLitro||0) > 0) patch.fuelCLP = Math.round((info.litros||0)*(info.precioPorLitro||0));
+    if (info.estacion) patch.station = info.estacion;
+    patchEntry(r.id, patch);
+    setOcr(prev=>({...prev, [r.id]: { loading:false, info }}));
+  }catch(err){
+    console.error('OCR error',err);
+    setOcr(prev=>({...prev, [r.id]: { loading:false, error: 'No pude leer la boleta. Intenta con una foto nítida.' }}));
+  }finally{ e.currentTarget.value=''; }
+}}
                       />
                     </label>
+                    {(() => {
+  const st = ocr[r.id];
+  if (!st) return null;
+  if (st.loading) return <div style={{fontSize:12,color:'#9ca3af',marginTop:6}}>Leyendo boleta…</div>;
+  if (st.error) return <div style={{fontSize:12,color:'#ef4444',marginTop:6}}>{st.error}</div>;
+  const i = st.info || {};
+  return (
+    <div className="card card--soft" style={{marginTop:6,padding:8,fontSize:12}}>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+        {i.totalCLP!==undefined && <span className="badge">Total CLP: {Math.round(i.totalCLP).toLocaleString()}</span>}
+        {i.precioPorLitro!==undefined && <span className="badge">$/L: {i.precioPorLitro}</span>}
+        {i.litros!==undefined && <span className="badge">Litros: {i.litros}</span>}
+        {i.estacion && <span className="badge">Estación: {i.estacion}</span>}
+        {i.fechaISO && <span className="badge">Fecha: {i.fechaISO}</span>}
+      </div>
+    </div>
+  );
+})()}
                   </td>
                   <td style={{textAlign:'right'}}>
                     <button className="btn" onClick={()=>rmEntry(r.id)} title="Eliminar"><Trash2 size={16}/></button>
@@ -813,7 +843,8 @@ export default function App(){
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         </Card>
       )}
 
