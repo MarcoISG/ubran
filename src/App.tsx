@@ -253,7 +253,13 @@ const DEFAULT_SETTINGS = {
   incFuel: true,   // incluir bencina
   incMaint: true,  // incluir mantención/h
   useFuelByKm: true, // usar bencina estimada por km (default true)
-  subFixed: false   // restar gastos fijos del Neto
+  subFixed: false,   // restar gastos fijos del Neto
+
+  // --- Publicidad (web) ---
+  adsEnabled: false,
+  adProvider: 'none' as 'none'|'adsense',
+  adsenseClientId: '',   // ej: ca-pub-1234567890123456
+  adsenseSlotId: '',     // ej: 1234567890
 };
 
 export default function App(){
@@ -1456,6 +1462,30 @@ export default function App(){
   );
 }
 
+
+function AdSlot({ settings, style }:{ settings: typeof DEFAULT_SETTINGS; style?: React.CSSProperties }){
+  const { adsEnabled, adProvider, adsenseClientId, adsenseSlotId } = settings as any;
+
+  useEffect(()=>{
+    if (!adsEnabled || adProvider!=='adsense') return;
+    if (!adsenseClientId || !adsenseSlotId) return;
+    const id = 'adsbygoogle-js';
+    if (!document.getElementById(id)){
+      const s = document.createElement('script');
+      s.id = id;
+      s.async = true;
+      s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(adsenseClientId)}`;
+      s.crossOrigin = 'anonymous';
+      document.head.appendChild(s);
+    }
+    const tryPush = () => {
+      // @ts-ignore
+      (window as any).adsbygoogle = (window as any).adsbygoogle || [];
+      (window as any).adsbygoogle.push({});
+    };
+    const t = setTimeout(tryPush, 500);
+    return ()=>clearTimeout(t);
+  }, [adsEnabled, adProvider, adsenseClientId, adsenseSlotId]);
 /* --- UI helpers --- */
 function Card({children}:{children:React.ReactNode}) {
   return <div className="card" style={{padding:14}}>{children}</div>;
