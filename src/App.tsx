@@ -316,6 +316,11 @@ export default function App(){
     // costos con toggles
     const tax  = settings.incTax  ? gross * settings.tax : 0;
     const postTax = gross - tax;
+    // Gastos fijos restantes del mes (restante del mes)
+    const fixedRemaining = fixed.reduce(
+      (s,g)=> s + Math.max(0,(Number(g.amountCLP)||0)-(Number(g.paidCLP)||0)),
+      0
+    );
 
     // Método 1: bencina por boletas (fuelCLP o litros*$L)
     const fuelByReceipts = entries.reduce((s,r)=>{
@@ -342,7 +347,8 @@ export default function App(){
 
     const fuelChosen = settings.incFuel ? (settings.useFuelByKm ? fuelByKmCLP : fuelByReceipts) : 0;
     const maint = settings.incMaint ? hours * settings.maintPerHour : 0;
-    const net = postTax - fuelChosen - maint;
+    const fixedAdj = settings.subFixed ? fixedRemaining : 0;
+    const net = postTax - fuelChosen - maint - fixedAdj;
 
     // Bonos
     let bonusAcc = 0;
@@ -356,9 +362,10 @@ export default function App(){
     return { hours, trips, gross, cash, tax, postTax, maint, net, bonusAcc, netPerHour, netPerTrip,
       // fuel aggregates
       fuelByReceipts, fuelByKmCLP, fuelUberLitersEst,
-      fuel: fuelChosen, fuelMethod: (settings.useFuelByKm ? 'km' : 'boleta') as 'km'|'boleta'
+      fuel: fuelChosen, fuelMethod: (settings.useFuelByKm ? 'km' : 'boleta') as 'km'|'boleta',
+      fixedRemaining, fixedAdj
     };
-  }, [entries, settings, bonus, vehicles, vehicleId, avgPricePerL]);
+  }, [entries, settings, bonus, vehicles, vehicleId, avgPricePerL, fixed]);
 
   const chartData = entries.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(r=>{
     const hours = Number(r.hours)||0;
@@ -491,6 +498,7 @@ export default function App(){
               settings.incTax ? '14%' : null,
               settings.incFuel ? 'bencina' : null,
               settings.incMaint ? 'mantención' : null,
+              settings.subFixed ? 'fijos' : null,
             ].filter(Boolean) as string[];
             return parts.length ? `Después de ${parts.join(' + ')}` : 'Sin descuentos aplicados';
           })()}
@@ -503,7 +511,7 @@ export default function App(){
           value={`CLP ${Math.round(totals.fuelByKmCLP).toLocaleString()}`}
           sub={`${totals.fuelUberLitersEst.toFixed(1)} L estimados`}
         />
-        <Costs fuel={totals.fuel} maint={totals.maint} tax={totals.tax} fuelMethod={totals.fuelMethod as 'km'|'boleta'}/>
+        <Costs fuel={totals.fuel} maint={totals.maint} tax={totals.tax} fixed={totals.fixedAdj} fuelMethod={totals.fuelMethod as 'km'|'boleta'}/>
       </div>
 
       {/* Tabs */}
@@ -1013,6 +1021,16 @@ export default function App(){
               </label>
             </div>
             <div style={{gridColumn:"1 / -1"}}>
+              <label style={{display:"flex",gap:8,alignItems:'center'}}>
+                <input
+                  type="checkbox"
+                  checked={!!settings.subFixed}
+                  onChange={e=>setSettings({...settings, subFixed: e.target.checked})}
+                />
+                Restar gastos fijos del Neto (usa el restante del mes)
+              </label>
+            </div>
+            <div style={{gridColumn:"1 / -1"}}>
               <label style={{color:"#6b7280",fontSize:12}}>Lugar favorito (para abrir en Waze)</label>
               <div style={{display:"flex",gap:8}}>
                 <input value={settings.favPlace} onChange={e=>setSettings({...settings, favPlace:e.target.value})} placeholder="Ej: Estación Central, Santiago" style={{flex:1}}/>
@@ -1050,13 +1068,14 @@ function Kpi({title, icon, value, sub}:{title:string; icon:React.ReactNode; valu
     </Card>
   );
 }
-function Costs({fuel, maint, tax, fuelMethod}:{fuel:number; maint:number; tax:number; fuelMethod?: 'km'|'boleta'}) {
+function Costs({fuel, maint, tax, fixed=0, fuelMethod}:{fuel:number; maint:number; tax:number; fixed?: number; fuelMethod?: 'km'|'boleta'}) {
   return (
     <Card>
       <div style={{display:"flex",alignItems:"center",gap:6,color:"#6b7280",fontSize:12}}><Fuel size={16}/> Costos</div>
       <div style={{color:'#6b7280',fontSize:11,marginTop:2}}>Bencina por: {fuelMethod==='km' ? 'km (estimado)' : 'boleta'}</div>
       <Row k="Bencina" v={`CLP ${Math.round(fuel).toLocaleString()}`}/>
       <Row k="Mantención" v={`CLP ${Math.round(maint).toLocaleString()}`}/>
+      {fixed>0 && <Row k="Fijos" v={`CLP ${Math.round(fixed).toLocaleString()}`}/>}
       <Row k="Impuesto" v={`CLP ${Math.round(tax).toLocaleString()}`}/>
     </Card>
   );
