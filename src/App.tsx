@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from "react";
-import { Wallet, Gauge, Target, Fuel, Upload, Download, PlusCircle, Trash2, Car, Goal as GoalIcon, MapPin } from "lucide-react";
+import { Wallet, Gauge, Target, Fuel, Upload, Download, PlusCircle, Trash2, Car, Goal as GoalIcon, MapPin, Menu } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, Bar } from "recharts";
 import Tesseract from 'tesseract.js';
 
@@ -362,6 +362,7 @@ export default function App(){
   const [tab, setTab] = useState<"dashboard"|"data"|"fuel"|"fixed"|"goals"|"vehicles"|"settings">("dashboard");
   const [ocr, setOcr] = useState<Record<string, OcrState>>({});
   const [isMobile, setIsMobile] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
     const mq = window.matchMedia('(max-width: 640px)');
@@ -417,7 +418,6 @@ export default function App(){
     }
   };
 
-  const totals = useMemo<Totals>(()=>{
   // Combustible del mes (CLP y litros), según método elegido en Ajustes
   const monthFuel = useMemo(() => {
     const monthPrefix = new Date().toISOString().slice(0,7); // YYYY-MM
@@ -452,6 +452,7 @@ export default function App(){
 
     return { clp, liters };
   }, [entries, vehicles, vehicleId, avgPricePerL, settings.useFuelByKm]);
+  const totals = useMemo<Totals>(()=>{
     const hours = entries.reduce((s,r)=>s+(Number(r.hours)||0),0);
     const trips = entries.reduce((s,r)=>s+(Number(r.trips)||0),0);
     const gross = entries.reduce((s,r)=>s+(Number(r.gross)||0),0);
@@ -628,6 +629,11 @@ export default function App(){
           <span style={{width:28,height:28,display:"grid",placeItems:"center",borderRadius:6,background:"#0f172a",color:"#10b981",fontWeight:900}}>U</span>
           Ubran
         </h1>
+        {isMobile ? (
+          <button className="btn" onClick={()=>setMenuOpen(true)} aria-label="Abrir menú">
+            <Menu size={18}/> Menu
+          </button>
+        ) : (
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             <label className="btn">
               <Upload size={16}/> Importar
@@ -635,10 +641,42 @@ export default function App(){
             </label>
             <button className="btn" onClick={exportJson}><Download size={16}/> Exportar</button>
           </div>
+        )}
       </div>
 
-      {/* KPIs */}
-      <div className="kpi-grid" style={{marginTop:16}}>
+      {isMobile && menuOpen && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:50}} onClick={()=>setMenuOpen(false)}>
+          <div
+            onClick={(e)=>e.stopPropagation()}
+            style={{position:'absolute',top:0,right:0,height:'100%',width:'78%',maxWidth:360,background:'var(--color-bg-card)',borderLeft:'1px solid var(--color-border)',padding:16,display:'grid',gap:12}}
+          >
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <strong>Menú</strong>
+              <button className="pill" onClick={()=>setMenuOpen(false)}>Cerrar</button>
+            </div>
+            <div style={{display:'grid',gap:8}}>
+              <button className={`pill ${tab==='dashboard'?'pill--active':''}`} onClick={()=>{setTab('dashboard'); setMenuOpen(false);}}>Inicio</button>
+              <button className={`pill ${tab==='data'?'pill--active':''}`} onClick={()=>{setTab('data'); setMenuOpen(false);}}>Carga de datos</button>
+              <button className={`pill ${tab==='fuel'?'pill--active':''}`} onClick={()=>{setTab('fuel'); setMenuOpen(false);}}>Combustible</button>
+              <button className={`pill ${tab==='fixed'?'pill--active':''}`} onClick={()=>{setTab('fixed'); setMenuOpen(false);}}>Fijos</button>
+              <button className={`pill ${tab==='goals'?'pill--active':''}`} onClick={()=>{setTab('goals'); setMenuOpen(false);}}>Metas</button>
+              <button className={`pill ${tab==='vehicles'?'pill--active':''}`} onClick={()=>{setTab('vehicles'); setMenuOpen(false);}}>Vehículos</button>
+              <button className={`pill ${tab==='settings'?'pill--active':''}`} onClick={()=>{setTab('settings'); setMenuOpen(false);}}>Ajustes</button>
+            </div>
+            <div style={{borderTop:'1px solid var(--color-border)',paddingTop:12,display:'grid',gap:8}}>
+              <label className="btn">
+                <Upload size={16}/> Importar
+                <input type="file" style={{display:'none'}} onChange={(e)=>{const f=e.target.files?.[0]; if(f) importJson(f); setMenuOpen(false);}}/>
+              </label>
+              <button className="btn" onClick={()=>{exportJson(); setMenuOpen(false);}}><Download size={16}/> Exportar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KPIs (desktop) */}
+      {!isMobile && (
+        <div className="kpi-grid" style={{marginTop:16}}>
         <Kpi
           title="Neto real"
           icon={<Wallet size={16}/>} 
@@ -668,7 +706,8 @@ export default function App(){
           sub={`${monthFuel.liters.toFixed(1)} L (${settings.useFuelByKm ? 'estimado por km' : 'por boleta'})`}
         />
         <Costs fuel={totals.fuel} maint={totals.maint} tax={totals.tax} fixed={totals.fixedAdj} fuelMethod={totals.fuelMethod as 'km'|'boleta'}/>
-      </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="pill-tabs">
@@ -757,51 +796,55 @@ export default function App(){
       )}
 
       {tab==='dashboard' && (
-        <div className="charts-grid">
-          <Card>
-            <h3 style={{marginTop:0}}>Neto por día</h3>
-            <div style={{height:260}}>
-              <ResponsiveContainer>
-                <LineChart data={chartData} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip formatter={(v)=>`CLP ${Number(v).toLocaleString()}`} />
-                  <Line type="monotone" dataKey="netDay" stroke="#10b981" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-          <Card>
-            <h3 style={{marginTop:0}}>Horas & Viajes</h3>
-            <div style={{height:260}}>
-              <ResponsiveContainer>
-                <BarChart data={chartData} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="hours" fill="#111827" />
-                  <Bar dataKey="trips" fill="#34d399" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-          <Card>
-            <h3 style={{marginTop:0}}>Bencina (estimada) por día</h3>
-            <div style={{height:260}}>
-              <ResponsiveContainer>
-                <BarChart data={chartData} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip formatter={(v)=>`CLP ${Number(v).toLocaleString()}`} />
-                  <Bar dataKey="fuelCostEst" fill="#60a5fa" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-        </div>
+        isMobile ? (
+          <MobileDashboard totals={totals} monthFuel={monthFuel} settings={settings} />
+        ) : (
+          <div className="charts-grid">
+            <Card>
+              <h3 style={{marginTop:0}}>Neto por día</h3>
+              <div style={{height:260}}>
+                <ResponsiveContainer>
+                  <LineChart data={chartData} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip formatter={(v)=>`CLP ${Number(v).toLocaleString()}`} />
+                    <Line type="monotone" dataKey="netDay" stroke="#10b981" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+            <Card>
+              <h3 style={{marginTop:0}}>Horas & Viajes</h3>
+              <div style={{height:260}}>
+                <ResponsiveContainer>
+                  <BarChart data={chartData} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="hours" fill="#111827" />
+                    <Bar dataKey="trips" fill="#34d399" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+            <Card>
+              <h3 style={{marginTop:0}}>Bencina (estimada) por día</h3>
+              <div style={{height:260}}>
+                <ResponsiveContainer>
+                  <BarChart data={chartData} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip formatter={(v)=>`CLP ${Number(v).toLocaleString()}`} />
+                    <Bar dataKey="fuelCostEst" fill="#60a5fa" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+          </div>
+        )
       )}
 
       {tab==='data' && (
@@ -1407,6 +1450,7 @@ export default function App(){
         </Card>
       )}
 
+      {isMobile && <MobileNav tab={tab} setTab={setTab} />}
       <div style={{marginTop:14,color:"#6b7280",fontSize:12}}>© Ubran — versión rápida offline</div>
     </div>
   );
@@ -1460,5 +1504,67 @@ function Pill({children}:{children:React.ReactNode}) {
 function TabBtn({active, children, onClick}:{active:boolean; children:React.ReactNode; onClick:()=>void}) {
   return (
     <button onClick={onClick} className={`pill ${active ? 'pill--active' : ''}`}>{children}</button>
+  );
+}
+
+function MobileDashboard(
+  { totals, monthFuel, settings }:
+  { totals: Totals; monthFuel: {clp:number; liters:number}; settings: typeof DEFAULT_SETTINGS }
+){
+  return (
+    <div style={{display:'grid', gap:12}}>
+      <Card>
+        <div style={{color:'#9ca3af',fontSize:12}}>Neto real</div>
+        <div style={{fontSize:28,fontWeight:800}}>CLP {Math.round(totals.net).toLocaleString()}</div>
+        <div style={{color:'#9ca3af',fontSize:12}}>
+          {(() => {
+            const parts = [
+              settings.incTax ? '14%' : null,
+              settings.incFuel ? 'bencina' : null,
+              settings.incMaint ? 'mantención' : null,
+              settings.subFixed ? 'fijos' : null,
+            ].filter(Boolean) as string[];
+            return parts.length ? `Después de ${parts.join(' + ')}` : 'Sin descuentos aplicados';
+          })()}
+        </div>
+      </Card>
+
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+        <Card><div style={{color:'#9ca3af',fontSize:12}}>Horas</div><div style={{fontSize:22,fontWeight:800}}>{totals.hours.toFixed(1)}</div></Card>
+        <Card><div style={{color:'#9ca3af',fontSize:12}}>Viajes</div><div style={{fontSize:22,fontWeight:800}}>{totals.trips}</div></Card>
+      </div>
+
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+        <Card><div style={{color:'#9ca3af',fontSize:12}}>Neto / hora</div><div style={{fontSize:22,fontWeight:800}}>CLP {Math.round(totals.netPerHour).toLocaleString()}</div></Card>
+        <Card><div style={{color:'#9ca3af',fontSize:12}}>Bonos acumulados</div><div style={{fontSize:22,fontWeight:800}}>CLP {Math.round(totals.bonusAcc).toLocaleString()}</div></Card>
+      </div>
+
+      <Card>
+        <div style={{display:'flex',justifyContent:'space-between',gap:16}}>
+          <div>
+            <div style={{color:'#9ca3af',fontSize:12}}>Bencina del mes</div>
+            <div style={{fontSize:18,fontWeight:700}}>CLP {Math.round(monthFuel.clp).toLocaleString()}</div>
+            <div style={{color:'#9ca3af',fontSize:12}}>{monthFuel.liters.toFixed(1)} L ({settings.useFuelByKm? 'estimado por km':'por boleta'})</div>
+          </div>
+          <div>
+            <div style={{color:'#9ca3af',fontSize:12}}>Costos</div>
+            <div style={{fontSize:12}}>Bencina: <strong>CLP {Math.round(totals.fuel).toLocaleString()}</strong></div>
+            <div style={{fontSize:12}}>Mantención: <strong>CLP {Math.round(totals.maint).toLocaleString()}</strong></div>
+            <div style={{fontSize:12}}>Impuesto: <strong>CLP {Math.round(totals.tax).toLocaleString()}</strong></div>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function MobileNav({ tab, setTab }:{ tab: any; setTab:(t:any)=>void }){
+  return (
+    <nav style={{position:'sticky',bottom:0,left:0,right:0,background:'var(--color-bg-card)',borderTop:'1px solid var(--color-border)',padding:8,display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8}}>
+      <button className={`pill ${tab==='dashboard'?'pill--active':''}`} onClick={()=>setTab('dashboard')}>Inicio</button>
+      <button className={`pill ${tab==='data'?'pill--active':''}`} onClick={()=>setTab('data')}>Datos</button>
+      <button className={`pill ${tab==='fuel'?'pill--active':''}`} onClick={()=>setTab('fuel')}>Bencina</button>
+      <button className={`pill ${tab==='settings'?'pill--active':''}`} onClick={()=>setTab('settings')}>Ajustes</button>
+    </nav>
   );
 }
