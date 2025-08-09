@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Wallet, Gauge, Target, Fuel, Upload, Download, PlusCircle, Trash2, Car, Goal as GoalIcon, MapPin } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, Bar } from "recharts";
 import Tesseract from 'tesseract.js';
@@ -273,6 +273,15 @@ export default function App(){
   };
   const [tab, setTab] = useState<"dashboard"|"data"|"fuel"|"fixed"|"goals"|"vehicles"|"settings">("dashboard");
   const [ocr, setOcr] = useState<Record<string, OcrState>>({});
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width: 640px)');
+    const apply = () => setIsMobile(mq.matches);
+    apply();
+    try { mq.addEventListener('change', apply); } catch { mq.addListener(apply); }
+    return () => { try { mq.removeEventListener('change', apply); } catch { mq.removeListener(apply); } };
+  }, []);
 
   const avgPricePerL = useMemo(()=>{
     const vals = entries.map(e=>Number(e.pricePerL)||0).filter(n=>n>0);
@@ -793,10 +802,16 @@ export default function App(){
                   </td>
                   <td><input value={r.station||''} onChange={e=>patchEntry(r.id,{station:e.target.value})} placeholder="Copec, Shell…"/></td>
                   <td>
-                    <label className="btn">
-                      Subir boleta
-                      <input type="file" accept="image/*,.jpg,.jpeg,.png,.webp" style={{display:'none'}}
-                        onChange={async (e)=>{
+                    {isMobile ? (
+                      <div className="upload" style={{textAlign:'left'}}>
+                        <div style={{fontSize:14, fontWeight:700, marginBottom:6}}>OCR desactivado en móvil</div>
+                        <div className="hint">Para estabilidad en el teléfono, usa la entrada manual:<br/>ingresa <strong>$/L</strong> y <strong>Total</strong> y calculamos <strong>Litros</strong> automáticamente.</div>
+                      </div>
+                    ) : (
+                      <label className="btn" style={{display:'inline-flex', alignItems:'center', gap:8}}>
+                        Subir boleta (OCR)
+                        <input type="file" accept="image/*,.jpg,.jpeg,.png,.webp" style={{display:'none'}}
+                          onChange={async (e)=>{
   const file=e.target.files?.[0]; if(!file) return;
   setOcr(prev=>({...prev, [r.id]: { loading:true, error: undefined, info: undefined }}));
   try{
@@ -816,8 +831,9 @@ export default function App(){
     setOcr(prev=>({...prev, [r.id]: { loading:false, error: 'No pude leer la boleta. Intenta con una foto nítida.' }}));
   }finally{ e.currentTarget.value=''; }
 }}
-                      />
-                    </label>
+                        />
+                      </label>
+                    )}
                     {(() => {
   const st = ocr[r.id];
   if (!st) return null;
