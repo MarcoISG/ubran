@@ -1,10 +1,13 @@
 {
   "name": "Ubran",
   "short_name": "Ubran",
-  "start_url": ".",
+  "description": "Dashboard de ganancias y gastos para conductores",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#f2f3f5",
-  "theme_color": "#e9ecef",
+  "background_color": "#0b1224",
+  "theme_color": "#0b1224",
   "icons": [
     {
       "src": "/icons/icon-192.png",
