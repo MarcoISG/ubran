@@ -4,6 +4,32 @@ import { Wallet, Gauge, Target, Fuel, Upload, Download, PlusCircle, Trash2, Car,
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, Bar } from "recharts";
 import Tesseract from 'tesseract.js';
 
+import { initializeApp } from "firebase/app";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User as FbUser } from "firebase/auth";
+
+// --- Firebase (Google Auth) ---
+const firebaseConfig = {
+  apiKey: "AIzaSyApQzLZ8LaW01pq5l-WruIhJzfSpe9sh2k",
+  authDomain: "ubran-c29d3.firebaseapp.com",
+  projectId: "ubran-c29d3",
+  storageBucket: "ubran-c29d3.firebasestorage.app",
+  messagingSenderId: "131691494187",
+  appId: "1:131691494187:web:4a9e6753388a87baa8236e",
+  measurementId: "G-6GW039CQM6"
+};
+
+// Evitar doble inicialización en HMR/React Strict
+let _appInited = false as boolean;
+let _auth = null as ReturnType<typeof getAuth> | null;
+let _provider = null as GoogleAuthProvider | null;
+function ensureFirebase(){
+  if (_appInited) return;
+  initializeApp(firebaseConfig);
+  _auth = getAuth();
+  _provider = new GoogleAuthProvider();
+  _appInited = true;
+}
+
 /*
 TODO – pendientes a integrar (según solicitud del usuario):
   • 📌 Formulario completo para añadir/editar gastos fijos.
@@ -231,6 +257,31 @@ const DEFAULT_SETTINGS = {
 };
 
 export default function App(){
+  ensureFirebase();
+  const auth = _auth!; // ya inicializado arriba
+  const provider = _provider!;
+
+  const [guser, setGuser] = useState<FbUser|null>(null);
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setGuser(u);
+      if (u) {
+        // sincrona una sesión local mínima para compatibilidad con el resto de la app
+        setUser({ name: u.displayName || u.email || 'Usuario', email: u.email || '' });
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const googleSignIn = async ()=>{
+    try { await signInWithPopup(auth, provider); }
+    catch(e){ console.error('Google Sign-In error', e); alert('No se pudo iniciar sesión con Google'); }
+  };
+  const googleSignOut = async ()=>{
+    try { await signOut(auth); setUser(null); }
+    catch(e){ console.error('SignOut error', e); }
+  };
+
   const [user, setUser] = useLocalState<User|null>("ubran_user", null);
   const [entries, setEntries] = useLocalState<Entry[]>("ubran_entries", []);
   const DEFAULT_VEHICLES: Vehicle[] = [
@@ -469,7 +520,7 @@ export default function App(){
     reader.readAsText(file);
   };
 
-  if (!user){
+  if (!user && !guser){
     return (
       <div style={{maxWidth:540, margin:"40px auto", fontFamily:"ui-sans-serif"}}>
         <h1 style={{display:"flex",alignItems:"center",gap:10}}>
@@ -477,28 +528,34 @@ export default function App(){
           Ubran
         </h1>
         <div style={{border:"1px solid var(--color-border)",borderRadius:12,padding:16,background:"var(--color-bg-card)"}}>
-          <h3 style={{marginTop:0}}>Crear sesión local</h3>
-          <p style={{color:"#6b7280"}}>Tus datos se guardarán en este dispositivo (offline). Más tarde activamos respaldo en la nube.</p>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:8}}>
-            <div>
-              <label style={{color:"#6b7280",fontSize:12}}>Nombre</label>
-              <input id="name" placeholder="Tu nombre" style={{width:"100%",padding:"8px 10px",border:"1px solid var(--color-border)",borderRadius:10,background:"#0e1526",color:"var(--color-text)"}}/>
-            </div>
-            <div>
-              <label style={{color:"#6b7280",fontSize:12}}>Correo</label>
-              <input id="email" placeholder="tucorreo@ejemplo.com" style={{width:"100%",padding:"8px 10px",border:"1px solid var(--color-border)",borderRadius:10,background:"#0e1526",color:"var(--color-text)"}}/>
-            </div>
-          </div>
-          <div style={{display:"flex",justifyContent:"flex-end",marginTop:12}}>
-            <button
-              onClick={()=>{
-                const name = (document.getElementById('name') as HTMLInputElement).value.trim();
-                const email = (document.getElementById('email') as HTMLInputElement).value.trim();
-                if(!name || !email) return alert("Completa nombre y correo");
-                setUser({name,email});
-              }}
-              style={{background:"#10b981",color:"#fff",border:"none",padding:"8px 12px",borderRadius:10,cursor:"pointer"}}
-            >Entrar</button>
+          <h3 style={{marginTop:0}}>Entrar</h3>
+          <p className="muted">Conecta tu cuenta de Google para guardar preferencias. También puedes crear sesión local.</p>
+          <div style={{display:'grid', gap:10}}>
+            <button className="btn" onClick={googleSignIn}>Continuar con Google</button>
+            <details>
+              <summary style={{cursor:'pointer', color:'#9ca3af'}}>o crear sesión local</summary>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:8}}>
+                <div>
+                  <label style={{color:"#6b7280",fontSize:12}}>Nombre</label>
+                  <input id="name" placeholder="Tu nombre" style={{width:"100%",padding:"8px 10px",border:"1px solid var(--color-border)",borderRadius:10,background:"#0e1526",color:"var(--color-text)"}}/>
+                </div>
+                <div>
+                  <label style={{color:"#6b7280",fontSize:12}}>Correo</label>
+                  <input id="email" placeholder="tucorreo@ejemplo.com" style={{width:"100%",padding:"8px 10px",border:"1px solid var(--color-border)",borderRadius:10,background:"#0e1526",color:"var(--color-text)"}}/>
+                </div>
+              </div>
+              <div style={{display:"flex",justifyContent:"flex-end",marginTop:12}}>
+                <button
+                  onClick={()=>{
+                    const name = (document.getElementById('name') as HTMLInputElement).value.trim();
+                    const email = (document.getElementById('email') as HTMLInputElement).value.trim();
+                    if(!name || !email) return alert("Completa nombre y correo");
+                    setUser({name,email});
+                  }}
+                  style={{background:"#10b981",color:"#fff",border:"none",padding:"8px 12px",borderRadius:10,cursor:"pointer"}}
+                >Entrar local</button>
+              </div>
+            </details>
           </div>
         </div>
       </div>
@@ -1276,8 +1333,12 @@ export default function App(){
           </div>
 
           <div style={{display:"flex",justifyContent:"space-between",marginTop:12}}>
-            <span style={{color:"#6b7280"}}>Sesión: {user.name} · {user.email}</span>
-            <button className="btn" onClick={()=>{ if(confirm('¿Cerrar sesión local? Tus datos permanecen en este dispositivo.')) setUser(null); }}>Cerrar sesión</button>
+            <span style={{color:"#6b7280"}}>Sesión: {(guser?.displayName || user?.name) || '—'} · {(guser?.email || user?.email) || '—'}</span>
+            {guser ? (
+              <button className="btn" onClick={googleSignOut}>Cerrar sesión Google</button>
+            ) : (
+              <button className="btn" onClick={()=>{ if(confirm('¿Cerrar sesión local? Tus datos permanecen en este dispositivo.')) setUser(null); }}>Cerrar sesión</button>
+            )}
           </div>
         </Card>
       )}
