@@ -6,7 +6,11 @@
           content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>Ubran</title>
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0b1220" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#0b1224" />
 
     <style id="ubran-styles">
       :root {
@@ -496,6 +500,27 @@
       /* Inputs con margen inferior para no quedar pegados */
       input, select, textarea { margin-bottom: 8px; }
     }
+    /* ===== POLISH #1: tema dark + acentos verdes, contraste y foco accesible ===== */
+:root{ --ring: 0 255 180; }
+
+.card{ background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 16px; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+.card.card--soft{ background: var(--color-bg-card-soft); }
+.card h1, .card h2, .card h3{ color: var(--color-text); letter-spacing: .1px; }
+
+.btn{ background: linear-gradient(180deg,#10b981,#0ea5a5); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; box-shadow: 0 2px 10px rgba(16,185,129,.25); }
+.btn:active{ transform: translateY(1px); }
+.btn:focus{ outline: 2px solid rgba(var(--ring),.35); outline-offset: 2px; }
+
+.pill{ border:1px solid var(--color-border); background: #0b1530; color: var(--color-text); }
+.pill--active{ background:#0e1b3a; border-color:#1c2b4e; }
+
+input[type="text"], input[type="number"], input[type="date"], select, textarea{ background:#0e1526; color:var(--color-text); border:1px solid var(--color-border); }
+input:focus, select:focus, textarea:focus{ outline: 2px solid rgba(var(--ring),.35); outline-offset: 2px; border-color:#1f9e80; }
+
+.table thead th{ background:#0e1526; color:#cbd5e1; }
+.table tbody td{ color:var(--color-text); }
+
+@media (max-width:640px){ .kpi-grid{ grid-template-columns:1fr !important; } .card + .card{ margin-top: 12px; } }
     </style>
   </head>
   <body>

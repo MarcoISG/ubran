@@ -233,7 +233,20 @@ const DEFAULT_SETTINGS = {
 export default function App(){
   const [user, setUser] = useLocalState<User|null>("ubran_user", null);
   const [entries, setEntries] = useLocalState<Entry[]>("ubran_entries", []);
+  const DEFAULT_VEHICLES: Vehicle[] = [
+    { id: 'chery_tiggo2_2022_15', label: 'Chery Tiggo 2 1.5 (2022)', make: 'Chery', model: 'Tiggo 2', year: 2022, engineL: 1.5, kmPerL: 11 },
+    { id: 'toyota_corolla_2018_18', label: 'Toyota Corolla 1.8 (2018)', make: 'Toyota', model: 'Corolla', year: 2018, engineL: 1.8, kmPerL: 14 },
+    { id: 'hyundai_accent_2017_14', label: 'Hyundai Accent 1.4 (2017)', make: 'Hyundai', model: 'Accent', year: 2017, engineL: 1.4, kmPerL: 15 },
+    { id: 'chevrolet_sail_2019_15', label: 'Chevrolet Sail 1.5 (2019)', make: 'Chevrolet', model: 'Sail', year: 2019, engineL: 1.5, kmPerL: 13 },
+    { id: 'kia_morning_2016_10', label: 'Kia Morning 1.0 (2016)', make: 'Kia', model: 'Morning', year: 2016, engineL: 1.0, kmPerL: 17 }
+  ];
   const [vehicles, setVehicles] = useLocalState<Vehicle[]>("ubran_vehicles", []);
+  useEffect(() => {
+    if (!vehicles || vehicles.length === 0) {
+      setVehicles(DEFAULT_VEHICLES);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [vehicleId, setVehicleId] = useLocalState<string>("ubran_current_vehicle","");
   const [goals, setGoals] = useLocalState<Goal[]>("ubran_goals", []);
   const [fixed, setFixed] = useLocalState<FixedExpense[]>("ubran_fixed", []);
@@ -463,17 +476,17 @@ export default function App(){
           <span style={{width:28,height:28,display:"grid",placeItems:"center",borderRadius:6,background:"#0f172a",color:"#10b981",fontWeight:900}}>U</span>
           Ubran
         </h1>
-        <div style={{border:"1px solid #e5e7eb",borderRadius:12,padding:16,background:"#fff"}}>
+        <div style={{border:"1px solid var(--color-border)",borderRadius:12,padding:16,background:"var(--color-bg-card)"}}>
           <h3 style={{marginTop:0}}>Crear sesión local</h3>
           <p style={{color:"#6b7280"}}>Tus datos se guardarán en este dispositivo (offline). Más tarde activamos respaldo en la nube.</p>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:8}}>
             <div>
               <label style={{color:"#6b7280",fontSize:12}}>Nombre</label>
-              <input id="name" placeholder="Tu nombre" style={{width:"100%",padding:"8px 10px",border:"1px solid #e5e7eb",borderRadius:10}}/>
+              <input id="name" placeholder="Tu nombre" style={{width:"100%",padding:"8px 10px",border:"1px solid var(--color-border)",borderRadius:10,background:"#0e1526",color:"var(--color-text)"}}/>
             </div>
             <div>
               <label style={{color:"#6b7280",fontSize:12}}>Correo</label>
-              <input id="email" placeholder="tucorreo@ejemplo.com" style={{width:"100%",padding:"8px 10px",border:"1px solid #e5e7eb",borderRadius:10}}/>
+              <input id="email" placeholder="tucorreo@ejemplo.com" style={{width:"100%",padding:"8px 10px",border:"1px solid var(--color-border)",borderRadius:10,background:"#0e1526",color:"var(--color-text)"}}/>
             </div>
           </div>
           <div style={{display:"flex",justifyContent:"flex-end",marginTop:12}}>
@@ -570,23 +583,45 @@ export default function App(){
                   <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginTop:8}}>
                     <div>
                       <label style={{color:"#6b7280",fontSize:12}}>Monto mensual (CLP)</label>
-                      <input type="number" value={g.amountCLP} onChange={e=>setFixed(list=>list.map(x=>x.id===g.id?{...x, amountCLP:Number(e.target.value)}:x))}/>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        step={1000}
+                        value={g.amountCLP}
+                        onChange={e=>setFixed(list=>list.map(x=>x.id===g.id?{...x, amountCLP:Number(e.target.value)}:x))}
+                      />
                     </div>
                     <div>
                       <label style={{color:"#6b7280",fontSize:12}}>Pagado este mes (CLP)</label>
-                      <input type="number" value={g.paidCLP} onChange={e=>setFixed(list=>list.map(x=>x.id===g.id?{...x, paidCLP:Number(e.target.value)}:x))}/>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        step={1000}
+                        value={g.paidCLP}
+                        onChange={e=>setFixed(list=>list.map(x=>x.id===g.id?{...x, paidCLP:Number(e.target.value)}:x))}
+                      />
                     </div>
                     <div>
                       <label style={{color:"#6b7280",fontSize:12}}>Día de vencimiento</label>
-                      <input type="number" min={1} max={31} value={g.dueDay||''} onChange={e=>setFixed(list=>list.map(x=>x.id===g.id?{...x, dueDay:Number(e.target.value)}:x))}/>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        max={31}
+                        step={1}
+                        value={g.dueDay||''}
+                        onChange={e=>setFixed(list=>list.map(x=>x.id===g.id?{...x, dueDay:Number(e.target.value)}:x))}
+                      />
                     </div>
                     <div style={{display:'flex',gap:8,alignItems:'flex-end'}}>
                       <button className="btn" onClick={()=>setFixed(list=>list.map(x=>x.id===g.id?{...x, paidCLP:0}:x))}>Reiniciar mes</button>
                     </div>
                   </div>
 
-                  <div style={{height:8,border:"1px solid #e5e7eb",borderRadius:999,overflow:"hidden",background:"#f7f8fa",marginTop:8}}>
-                    <div style={{width:`${progress}%`,height:"100%",background:"linear-gradient(90deg,#0ea5e9,#38bdf8)"}}/>
+                  <div style={{height:8, border:"1px solid var(--color-border)", borderRadius:999, overflow:"hidden", background:"var(--color-bg-card-soft)", marginTop:8}}>
+                    <div style={{width:`${progress}%`,height:"100%",background:"linear-gradient(90deg,#10b981,#34d399)"}}/>
                   </div>
                   <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8}}>
                     <Pill>Falta: CLP {Math.round(rest).toLocaleString()}</Pill>
@@ -653,7 +688,7 @@ export default function App(){
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,gap:12,flexWrap:"wrap"}}>
             <div style={{display:"flex",gap:12}}>
               <button className="btn" onClick={addEntry}><PlusCircle size={16}/> Agregar día</button>
-              <select value={vehicleId} onChange={(e)=>setVehicleId(e.target.value)} style={{padding:"8px 10px",border:"1px solid #e5e7eb",borderRadius:10}}>
+              <select value={vehicleId} onChange={(e)=>setVehicleId(e.target.value)} style={{padding:"8px 10px",border:"1px solid var(--color-border)",borderRadius:10,background:"#0e1526",color:"var(--color-text)"}}>
                 <option value="">Sin vehículo</option>
                 {vehicles.map(v=>(<option key={v.id} value={v.id}>{v.label}</option>))}
               </select>
@@ -770,7 +805,7 @@ export default function App(){
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,gap:12,flexWrap:"wrap"}}>
             <div style={{display:"flex",gap:12}}>
               <button className="btn" onClick={addEntry}><PlusCircle size={16}/> Agregar día</button>
-              <select value={vehicleId} onChange={(e)=>setVehicleId(e.target.value)} style={{padding:"8px 10px",border:"1px solid #e5e7eb",borderRadius:10}}>
+              <select value={vehicleId} onChange={(e)=>setVehicleId(e.target.value)} style={{padding:"8px 10px",border:"1px solid var(--color-border)",borderRadius:10,background:"#0e1526",color:"var(--color-text)"}}>
                 <option value="">Sin vehículo</option>
                 {vehicles.map(v=>(<option key={v.id} value={v.id}>{v.label}</option>))}
               </select>
@@ -1021,14 +1056,28 @@ export default function App(){
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:8}}>
                     <div>
                       <label style={{color:"#6b7280",fontSize:12}}>Objetivo (CLP)</label>
-                      <input type="number" value={g.targetCLP} onChange={e=>setGoals(list=>list.map(x=>x.id===g.id?{...x, targetCLP:Number(e.target.value)}:x))}/>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        step={1000}
+                        value={g.targetCLP}
+                        onChange={e=>setGoals(list=>list.map(x=>x.id===g.id?{...x, targetCLP:Number(e.target.value)}:x))}
+                      />
                     </div>
                     <div>
                       <label style={{color:"#6b7280",fontSize:12}}>Ahorro actual (CLP)</label>
-                      <input type="number" value={g.savedCLP} onChange={e=>setGoals(list=>list.map(x=>x.id===g.id?{...x, savedCLP:Number(e.target.value)}:x))}/>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        step={1000}
+                        value={g.savedCLP}
+                        onChange={e=>setGoals(list=>list.map(x=>x.id===g.id?{...x, savedCLP:Number(e.target.value)}:x))}
+                      />
                     </div>
                   </div>
-                  <div style={{height:8,border:"1px solid #e5e7eb",borderRadius:999,overflow:"hidden",background:"#f7f8fa",marginTop:8}}>
+                  <div style={{height:8, border:"1px solid var(--color-border)", borderRadius:999, overflow:"hidden", background:"var(--color-bg-card-soft)", marginTop:8}}>
                     <div style={{width:`${progress}%`,height:"100%",background:"linear-gradient(90deg,#10b981,#34d399)"}}/>
                   </div>
                   <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8}}>
@@ -1177,22 +1226,22 @@ export default function App(){
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <div>
               <label style={{color:"#6b7280",fontSize:12}}>Impuesto (0.14 = 14%)</label>
-              <input type="number" step="0.01" value={settings.tax} onChange={e=>setSettings({...settings, tax:Number(e.target.value)})}/>
+              <input type="number" inputMode="decimal" step="0.01" min={0} max={1} value={settings.tax} onChange={e=>setSettings({...settings, tax:Number(e.target.value)})}/>
             </div>
             <div>
               <label style={{color:"#6b7280",fontSize:12}}>Mantención por hora (CLP)</label>
-              <input type="number" value={settings.maintPerHour} onChange={e=>setSettings({...settings, maintPerHour:Number(e.target.value)})}/>
+              <input type="number" inputMode="decimal" min={0} step={100} value={settings.maintPerHour} onChange={e=>setSettings({...settings, maintPerHour:Number(e.target.value)})}/>
             </div>
             <div style={{gridColumn:"1 / -1", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12}}>
-              <label style={{display:"flex",gap:8,alignItems:"center"}}>
+              <label style={{display:"flex",gap:8,alignItems:"center",lineHeight:1.35}}>
                 <input type="checkbox" checked={settings.incTax} onChange={e=>setSettings({...settings, incTax: e.target.checked})}/>
                 Incluir 14% de Uber
               </label>
-              <label style={{display:"flex",gap:8,alignItems:"center"}}>
+              <label style={{display:"flex",gap:8,alignItems:"center",lineHeight:1.35}}>
                 <input type="checkbox" checked={settings.incFuel} onChange={e=>setSettings({...settings, incFuel: e.target.checked})}/>
                 Incluir bencina
               </label>
-              <label style={{display:"flex",gap:8,alignItems:"center"}}>
+              <label style={{display:"flex",gap:8,alignItems:"center",lineHeight:1.35}}>
                 <input type="checkbox" checked={settings.incMaint} onChange={e=>setSettings({...settings, incMaint: e.target.checked})}/>
                 Incluir mantención/h
               </label>
