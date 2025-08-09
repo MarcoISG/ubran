@@ -1486,6 +1486,22 @@ function AdSlot({ settings, style }:{ settings: typeof DEFAULT_SETTINGS; style?:
     const t = setTimeout(tryPush, 500);
     return ()=>clearTimeout(t);
   }, [adsEnabled, adProvider, adsenseClientId, adsenseSlotId]);
+
+  if (!adsEnabled || adProvider!=='adsense' || !adsenseClientId || !adsenseSlotId){
+    return null;
+  }
+
+  return (
+    <div style={{margin:'8px 0', ...(style||{})}}>
+      <ins className="adsbygoogle"
+        style={{ display:'block' }}
+        data-ad-client={settings.adsenseClientId}
+        data-ad-slot={settings.adsenseSlotId}
+        data-ad-format="auto"
+        data-full-width-responsive="true"></ins>
+    </div>
+  );
+}
 /* --- UI helpers --- */
 function Card({children}:{children:React.ReactNode}) {
   return <div className="card" style={{padding:14}}>{children}</div>;
