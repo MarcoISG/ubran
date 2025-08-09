@@ -273,6 +273,30 @@ export default function App(){
     return () => unsub();
   }, []);
 
+  // --- LocalStorage por usuario: prefijo por uid o 'guest' ---
+  const userKeyPrefix = useMemo(() => guser?.uid ? `ubran_${guser.uid}_` : 'ubran_guest_', [guser?.uid]);
+  function useUserState<T>(key: string, initial: T){
+    return useLocalState<T>(userKeyPrefix + key, initial);
+  }
+
+  // Migración 1 sola vez: copia claves legacy a claves con prefijo del usuario
+  useEffect(() => {
+    const uid = guser?.uid;
+    if (!uid) return; // solo migra si hay usuario Google
+    const prefix = `ubran_${uid}_`;
+    const legacyKeys = [
+      'ubran_entries', 'ubran_settings', 'ubran_vehicles', 'ubran_fixed', 'ubran_goals',
+      'ubran_current_vehicle', 'ubran_bonus'
+    ];
+    legacyKeys.forEach((legacy) => {
+      const val = localStorage.getItem(legacy);
+      const target = prefix + legacy.replace('ubran_','');
+      if (val && !localStorage.getItem(target)){
+        try { localStorage.setItem(target, val); } catch {}
+      }
+    });
+  }, [guser?.uid]);
+
   const googleSignIn = async ()=>{
     try { await signInWithPopup(auth, provider); }
     catch(e){ console.error('Google Sign-In error', e); alert('No se pudo iniciar sesión con Google'); }
@@ -283,7 +307,7 @@ export default function App(){
   };
 
   const [user, setUser] = useLocalState<User|null>("ubran_user", null);
-  const [entries, setEntries] = useLocalState<Entry[]>("ubran_entries", []);
+  const [entries, setEntries] = useUserState<Entry[]>("entries", []);
   const DEFAULT_VEHICLES: Vehicle[] = [
     { id: 'chery_tiggo2_2022_15', label: 'Chery Tiggo 2 1.5 (2022)', make: 'Chery', model: 'Tiggo 2', year: 2022, engineL: 1.5, kmPerL: 11 },
     { id: 'toyota_corolla_2018_18', label: 'Toyota Corolla 1.8 (2018)', make: 'Toyota', model: 'Corolla', year: 2018, engineL: 1.8, kmPerL: 14 },
@@ -291,18 +315,18 @@ export default function App(){
     { id: 'chevrolet_sail_2019_15', label: 'Chevrolet Sail 1.5 (2019)', make: 'Chevrolet', model: 'Sail', year: 2019, engineL: 1.5, kmPerL: 13 },
     { id: 'kia_morning_2016_10', label: 'Kia Morning 1.0 (2016)', make: 'Kia', model: 'Morning', year: 2016, engineL: 1.0, kmPerL: 17 }
   ];
-  const [vehicles, setVehicles] = useLocalState<Vehicle[]>("ubran_vehicles", []);
+  const [vehicles, setVehicles] = useUserState<Vehicle[]>("vehicles", []);
   useEffect(() => {
     if (!vehicles || vehicles.length === 0) {
       setVehicles(DEFAULT_VEHICLES);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const [vehicleId, setVehicleId] = useLocalState<string>("ubran_current_vehicle","");
-  const [goals, setGoals] = useLocalState<Goal[]>("ubran_goals", []);
-  const [fixed, setFixed] = useLocalState<FixedExpense[]>("ubran_fixed", []);
-  const [bonus, setBonus] = useLocalState("ubran_bonus", DEFAULT_BONUS);
-  const [settings, setSettings] = useLocalState("ubran_settings", DEFAULT_SETTINGS);
+  const [vehicleId, setVehicleId] = useUserState<string>("current_vehicle", "");
+  const [goals, setGoals] = useUserState<Goal[]>("goals", []);
+  const [fixed, setFixed] = useUserState<FixedExpense[]>("fixed", []);
+  const [bonus, setBonus] = useUserState("bonus", DEFAULT_BONUS);
+  const [settings, setSettings] = useUserState("settings", DEFAULT_SETTINGS);
   const VEH_DB: Record<string, string[]> = {
     "Chery": ["Tiggo 2", "Tiggo 3", "Tiggo 4", "Tiggo 7", "Tiggo 8", "Arrizo 5", "Arrizo 7"],
     "Chevrolet": ["Spark", "Sail", "Onix", "Aveo", "Prisma", "Cruze", "Tracker", "Equinox", "Spin", "Captiva", "Corvette"],
@@ -394,6 +418,40 @@ export default function App(){
   };
 
   const totals = useMemo<Totals>(()=>{
+  // Combustible del mes (CLP y litros), según método elegido en Ajustes
+  const monthFuel = useMemo(() => {
+    const monthPrefix = new Date().toISOString().slice(0,7); // YYYY-MM
+    let clp = 0;
+    let liters = 0;
+
+    const monthEntries = entries.filter(r => (r.date || '').slice(0,7) === monthPrefix);
+
+    if (settings.useFuelByKm) {
+      for (const r of monthEntries){
+        const kms = Math.max(0, (Number(r.odometerEnd)||0) - (Number(r.odometerStart)||0));
+        if (kms<=0) continue;
+        const veh = vehicles.find(v => v.id === (r.vehicleId || '')) || vehicles.find(v=>v.id===vehicleId);
+        const kmPerL = veh?.kmPerL || 0;
+        if (kmPerL>0){
+          const estLit = kms / kmPerL;
+          liters += estLit;
+          const ppl = (Number(r.pricePerL)||0) || avgPricePerL || 0;
+          clp += estLit * (ppl||0);
+        }
+      }
+    } else {
+      for (const r of monthEntries){
+        const l = Number(r.liters)||0;
+        const ppl = Number(r.pricePerL)||0;
+        const direct = Number(r.fuelCLP)||0;
+        if (direct>0) clp += direct;
+        else if (l>0 && ppl>0) clp += l * ppl;
+        if (l>0) liters += l;
+      }
+    }
+
+    return { clp, liters };
+  }, [entries, vehicles, vehicleId, avgPricePerL, settings.useFuelByKm]);
     const hours = entries.reduce((s,r)=>s+(Number(r.hours)||0),0);
     const trips = entries.reduce((s,r)=>s+(Number(r.trips)||0),0);
     const gross = entries.reduce((s,r)=>s+(Number(r.gross)||0),0);
@@ -602,6 +660,12 @@ export default function App(){
           icon={<Fuel size={16}/>} 
           value={`CLP ${Math.round(totals.fuelByKmCLP).toLocaleString()}`}
           sub={`${totals.fuelUberLitersEst.toFixed(1)} L estimados`}
+        />
+        <Kpi
+          title="Bencina del mes"
+          icon={<Fuel size={16}/>} 
+          value={`CLP ${Math.round(monthFuel.clp).toLocaleString()}`}
+          sub={`${monthFuel.liters.toFixed(1)} L (${settings.useFuelByKm ? 'estimado por km' : 'por boleta'})`}
         />
         <Costs fuel={totals.fuel} maint={totals.maint} tax={totals.tax} fixed={totals.fixedAdj} fuelMethod={totals.fuelMethod as 'km'|'boleta'}/>
       </div>

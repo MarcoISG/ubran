@@ -5,12 +5,18 @@
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>Ubran</title>
-    <link rel="manifest" href="/manifest.webmanifest?v=2" />
+    <link rel="manifest" href="/manifest.webmanifest?v=3" />
+    <meta name="application-name" content="Ubran" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Ubran" />
+    <meta name="color-scheme" content="dark light" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="theme-color" content="#0b1224" />
+    <meta name="theme-color" content="#0b1224" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#0b1224" media="(prefers-color-scheme: light)" />
+    <meta name="format-detection" content="telephone=no, address=no, email=no" />
 
     <style id="ubran-styles">
       :root {
@@ -41,6 +47,7 @@
   --color-header-bg: var(--color-bg-card, #151c2c);
   --color-header-text: var(--color-text, #f8fafc);
       }
+      html { background: var(--color-bg); }
       body {
         background: var(--color-bg);
         color: var(--color-text);
@@ -526,53 +533,51 @@ input:focus, select:focus, textarea:focus{ outline: 2px solid rgba(var(--ring),.
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-</body>
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    const swCode = `
-      const CACHE = 'ubran-cache-v1';
-      self.addEventListener('install', (e) => {
-        self.skipWaiting();
-        e.waitUntil(
-          caches.open(CACHE).then(c => c.addAll(['/','/index.html','/manifest.webmanifest?v=2'])).catch(()=>{})
-        );
+    <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        const swCode = `
+          const CACHE = 'ubran-cache-v1';
+          self.addEventListener('install', (e) => {
+            self.skipWaiting();
+            e.waitUntil(
+              caches.open(CACHE).then(c => c.addAll(['/', '/index.html','/manifest.webmanifest?v=2'])).catch(()=>{})
+            );
+          });
+          self.addEventListener('activate', (e) => {
+            e.waitUntil(
+              caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+                .then(() => self.clients.claim())
+            );
+          });
+          self.addEventListener('fetch', (e) => {
+            const url = new URL(e.request.url);
+            if (e.request.mode === 'navigate') {
+              e.respondWith(
+                fetch(e.request).then(r => {
+                  const copy = r.clone();
+                  caches.open(CACHE).then(c => c.put('/', copy)).catch(()=>{});
+                  return r;
+                }).catch(() => caches.match('/'))
+              );
+              return;
+            }
+            if (url.pathname.startsWith('/assets/')) {
+              e.respondWith(
+                caches.match(e.request).then(hit => hit || fetch(e.request).then(r => {
+                  const copy = r.clone();
+                  caches.open(CACHE).then(c => c.put(e.request, copy));
+                  return r;
+                }))
+              );
+            }
+          });
+        `;
+        const blob = new Blob([swCode], { type: 'text/javascript' });
+        const swUrl = URL.createObjectURL(blob);
+        navigator.serviceWorker.register(swUrl, { scope: '/' }).catch(console.error);
       });
-      self.addEventListener('activate', (e) => {
-        e.waitUntil(
-          caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
-            .then(() => self.clients.claim())
-        );
-      });
-      self.addEventListener('fetch', (e) => {
-        const url = new URL(e.request.url);
-        // Navegación: red primero, fallback cache de '/'
-        if (e.request.mode === 'navigate') {
-          e.respondWith(
-            fetch(e.request).then(r => {
-              const copy = r.clone();
-              caches.open(CACHE).then(c => c.put('/', copy)).catch(()=>{});
-              return r;
-            }).catch(() => caches.match('/'))
-          );
-          return;
-        }
-        // Assets estáticos de Vite: cache-first
-        if (url.pathname.startsWith('/assets/')) {
-          e.respondWith(
-            caches.match(e.request).then(hit => hit || fetch(e.request).then(r => {
-              const copy = r.clone();
-              caches.open(CACHE).then(c => c.put(e.request, copy));
-              return r;
-            }))
-          );
-        }
-      });
-    `;
-    const blob = new Blob([swCode], { type: 'text/javascript' });
-    const swUrl = URL.createObjectURL(blob);
-    navigator.serviceWorker.register(swUrl, { scope: '/' }).catch(console.error);
-  });
-}
-</script>
+    }
+    </script>
+  </body>
 </html>
