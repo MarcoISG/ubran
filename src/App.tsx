@@ -189,6 +189,8 @@ type Totals = {
   fuelUberLitersEst: number;
   fuel: number;
   fuelMethod: 'km' | 'boleta';
+  fixedRemaining: number;
+  fixedAdj: number;
 };
 
 const uid = ()=>Math.random().toString(36).slice(2,9);
@@ -212,7 +214,8 @@ const DEFAULT_SETTINGS = {
   incTax: true,    // incluir 14% en neto
   incFuel: true,   // incluir bencina
   incMaint: true,  // incluir mantención/h
-  useFuelByKm: true // usar bencina estimada por km (default true)
+  useFuelByKm: true, // usar bencina estimada por km (default true)
+  subFixed: false   // restar gastos fijos del Neto
 };
 
 export default function App(){
