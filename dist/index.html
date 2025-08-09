@@ -5,21 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ubran</title>
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#e9ecef" />
+    <meta name="theme-color" content="#111827" />
 
     <style>
       /* Base button */
-      .btn{ background:#fff; border:1px solid #e5e7eb; padding:8px 12px; border-radius:10px; cursor:pointer; }
-      .btn:hover{ border-color:#cbd5e1; }
+      .btn{ background:#1f2937; border:1px solid #374151; padding:8px 12px; border-radius:10px; cursor:pointer; color:#f8fafc; }
+      .btn:hover{ border-color:#4b5563; background:#374151; }
 
       /* Modern pill tabs */
       .pill-tabs{ display:flex; gap:8px; flex-wrap:nowrap; overflow-x:auto; margin-top:12px; }
-      .pill{ padding:8px 14px; border:1px solid #e5e7eb; border-radius:999px; background:#f8fafc; color:#111827; cursor:pointer; transition:all .15s ease; white-space:nowrap; }
-      .pill:hover{ border-color:#d1d5db; background:#f3f4f6; }
+      .pill{ padding:8px 14px; border:1px solid #374151; border-radius:999px; background:#1f2937; color:#f8fafc; cursor:pointer; transition:all .15s ease; white-space:nowrap; }
+      .pill:hover{ border-color:#6b7280; background:#374151; }
       .pill--active{ background:#10b981; color:#fff; border-color:#10b981; box-shadow:0 6px 14px rgba(16,185,129,.22); }
 
       /* Softer cards */
-      .card{ background:#fff; border:1px solid #eef2f7; border-radius:14px; box-shadow:0 8px 24px rgba(17,24,39,.06); }
+      .card{ background:#1f2937; border:1px solid #374151; border-radius:14px; box-shadow:0 8px 24px rgba(17,24,39,.06); }
+
+      /* Dark mode base styles */
+      body {
+        background: #111827;
+        color: #f8fafc;
+      }
 
       /* --- Responsive grids estilo Bootstrap --- */
       /* Desktop por defecto */
@@ -37,8 +43,74 @@
         .kpi-grid{ grid-template-columns:1fr; }
         .pill-tabs{ gap:6px; }
       }
+
+      /* ===== Typography & headers ===== */
+      h1,h2,h3{ margin:0 0 6px; font-weight:800; }
+      h2{ font-size:20px; }
+      h3{ font-size:16px; color:#cbd5e1; }
+      .muted{ color:#9ca3af; }
+      .section{ margin:14px 0; }
+      .section-header{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin:8px 0 10px; }
+
+      /* ===== Inputs & forms ===== */
+      label{ font-size:12px; color:#9ca3af; display:block; margin:0 0 6px; }
+      input, select, textarea{ width:100%; padding:10px 12px; border-radius:10px; border:1px solid #374151; background:#0f172a; color:#f8fafc; }
+      input:focus, select:focus, textarea:focus{ outline:none; box-shadow:0 0 0 2px rgba(16,185,129,.35); border-color:#10b981; }
+      input[type="file"]{ border-style:dashed; cursor:pointer; }
+
+      /* Helper grids */
+      .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+      .grid-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+      .grid-4{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+      @media (max-width: 900px){ .grid-4{ grid-template-columns:repeat(2,1fr); } }
+      @media (max-width: 640px){ .grid-2, .grid-3, .grid-4{ grid-template-columns:1fr; } }
+
+      /* ===== Cards ===== */
+      .card--soft{ background:#0f172a; border:1px solid #2a3646; }
+      .card-title{ display:flex; align-items:center; gap:10px; font-weight:700; }
+      .badge{ display:inline-flex; align-items:center; height:22px; padding:0 8px; font-size:12px; border-radius:999px; border:1px solid #2a3646; background:#0d1320; color:#9ca3af; }
+
+      /* ===== Progress bar ===== */
+      .progress{ height:8px; border:1px solid #2a3646; border-radius:999px; background:#0d1320; overflow:hidden; }
+      .progress__bar{ height:100%; background:linear-gradient(90deg,#10b981,#34d399); }
+
+      /* ===== Pill tabs polish ===== */
+      .pill-tabs{ -webkit-overflow-scrolling:touch; scrollbar-width:thin; }
+      .pill-tabs::-webkit-scrollbar{ height:6px; }
+      .pill-tabs::-webkit-scrollbar-thumb{ background:#334155; border-radius:999px; }
+
+      /* ===== Tables ===== */
+      .table{ width:100%; border-collapse:collapse; }
+      .table th, .table td{ padding:10px; border-bottom:1px solid #233145; }
+      .table th{ text-align:left; color:#9ca3af; font-size:12px; letter-spacing:.02em; }
+      .table-row-actions{ display:flex; gap:8px; justify-content:flex-end; }
+      .table-wrap{ width:100%; overflow:auto; border:1px solid #233145; border-radius:12px; }
+
+      /* Mobile table behavior: keep horizontal scroll (más confiable que convertir a cards sin data-col) */
+      @media (max-width: 640px){
+        .table th, .table td{ padding:8px; }
+        .table th:nth-last-child(1), .table td:nth-last-child(1){ position:sticky; right:0; background:#111827; }
+      }
+
+      /* ===== Upload / OCR card ===== */
+      .upload{ border:1px dashed #334155; border-radius:14px; background:#0f172a; padding:14px; text-align:center; }
+      .upload:hover{ border-color:#10b981; }
+      .upload input[type="file"]{ display:block; width:100%; padding:18px; border-radius:12px; border:1px dashed #334155; background:#0b0f12; }
+      .upload .hint{ color:#9ca3af; font-size:12px; margin-top:8px; }
+      .upload .ok{ color:#10b981; font-weight:700; }
+      .upload .error{ color:#ef4444; font-weight:700; }
+
+      /* ===== Buttons variants ===== */
+      .btn--ghost{ background:#0f172a; color:#f8fafc; }
+      .btn--accent{ background:#10b981; color:#06291f; border-color:transparent; }
+      .btn--accent:hover{ filter:brightness(1.05); }
+
+      /* ===== Misc spacing ===== */
+      .stack-8 > * + *{ margin-top:8px; }
+      .stack-12 > * + *{ margin-top:12px; }
+      .stack-16 > * + *{ margin-top:16px; }
     </style>
-    <script type="module" crossorigin src="/assets/index-BWDZLCFz.js"></script>
+    <script type="module" crossorigin src="/assets/index-CxBhySSf.js"></script>
   </head>
   <body>
     <div id="root"></div>
