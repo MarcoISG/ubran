@@ -659,54 +659,109 @@ export default function App(){
               </select>
             </div>
           </div>
-          <div className="table-wrap">
-            <table className="table" style={{fontSize:14}}>
-            <thead>
-              <tr>
-                <th colSpan={5}>Jornada</th>
-                <th colSpan={3}>Ingresos</th>
-                <th></th>
-              </tr>
-              <tr>
-                <th>Fecha</th><th>Horas</th><th>Viajes</th><th>Km inicio</th><th>Km final</th>
-                <th>Bruto</th><th>Efectivo</th><th>Bencina (est.)</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map(r=>(
-                <tr key={r.id}>
-                  {/* Jornada */}
-                  <td><input type="date" value={r.date} onChange={e=>patchEntry(r.id,{date:e.target.value})}/></td>
-                  <td><InputNum step={0.1} value={r.hours} onChange={(v)=>patchEntry(r.id,{hours:v})} /></td>
-                  <td><InputNum value={r.trips} onChange={(v)=>patchEntry(r.id,{trips:v})} /></td>
-                  <td><InputNum value={r.odometerStart||0} onChange={(v)=>patchEntry(r.id,{odometerStart:v})} /></td>
-                  <td><InputNum value={r.odometerEnd||0} onChange={(v)=>patchEntry(r.id,{odometerEnd:v})} /></td>
 
-                  {/* Ingresos */}
-                  <td><InputNum value={r.gross} onChange={(v)=>patchEntry(r.id,{gross:v})} /></td>
-                  <td><InputNum value={r.cash} onChange={(v)=>patchEntry(r.id,{cash:v})} /></td>
-                  <td style={{color:'#6b7280'}}>
-                    {(() => {
-                      const kms = Math.max(0, (Number(r.odometerEnd)||0) - (Number(r.odometerStart)||0));
-                      const veh = vehicles.find(v => v.id === (r.vehicleId || '')) || vehicles.find(v=>v.id===vehicleId);
-                      const kmPerL = veh?.kmPerL || 0;
-                      const litersEst = kmPerL>0 ? (kms / kmPerL) : 0;
-                      const price = (Number(r.pricePerL)||0) || avgPricePerL || 0;
-                      const clp = litersEst * price;
-                      return `CLP ${Math.round(clp).toLocaleString()}`;
-                    })()}
-                  </td>
-
-                  {/* acciones */}
-                  <td style={{textAlign:'right'}}>
-                    <button className="btn" onClick={()=>rmEntry(r.id)} title="Eliminar"><Trash2 size={16}/></button>
-                  </td>
-                </tr>
+          {isMobile ? (
+            <div style={{display:'grid', gap:12}}>
+              {entries.map(r=> (
+                <Card key={r.id}>
+                  <div style={{display:'grid', gap:10}}>
+                    <div>
+                      <label style={{color:'#6b7280',fontSize:12}}>Fecha</label>
+                      <input type="date" value={r.date} onChange={e=>patchEntry(r.id,{date:e.target.value})}/>
+                    </div>
+                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+                      <div>
+                        <label style={{color:'#6b7280',fontSize:12}}>Horas</label>
+                        <InputNum step={0.1} value={r.hours} onChange={(v)=>patchEntry(r.id,{hours:v})} />
+                      </div>
+                      <div>
+                        <label style={{color:'#6b7280',fontSize:12}}>Viajes</label>
+                        <InputNum value={r.trips} onChange={(v)=>patchEntry(r.id,{trips:v})} />
+                      </div>
+                    </div>
+                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+                      <div>
+                        <label style={{color:'#6b7280',fontSize:12}}>Km inicio</label>
+                        <InputNum value={r.odometerStart||0} onChange={(v)=>patchEntry(r.id,{odometerStart:v})} />
+                      </div>
+                      <div>
+                        <label style={{color:'#6b7280',fontSize:12}}>Km final</label>
+                        <InputNum value={r.odometerEnd||0} onChange={(v)=>patchEntry(r.id,{odometerEnd:v})} />
+                      </div>
+                    </div>
+                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+                      <div>
+                        <label style={{color:'#6b7280',fontSize:12}}>Bruto</label>
+                        <InputNum value={r.gross} onChange={(v)=>patchEntry(r.id,{gross:v})} />
+                      </div>
+                      <div>
+                        <label style={{color:'#6b7280',fontSize:12}}>Efectivo</label>
+                        <InputNum value={r.cash} onChange={(v)=>patchEntry(r.id,{cash:v})} />
+                      </div>
+                    </div>
+                    <div style={{color:'#6b7280',fontSize:12}}>
+                      {(() => {
+                        const kms = Math.max(0, (Number(r.odometerEnd)||0) - (Number(r.odometerStart)||0));
+                        const veh = vehicles.find(v => v.id === (r.vehicleId || '')) || vehicles.find(v=>v.id===vehicleId);
+                        const kmPerL = veh?.kmPerL || 0;
+                        const litersEst = kmPerL>0 ? (kms / kmPerL) : 0;
+                        const price = (Number(r.pricePerL)||0) || avgPricePerL || 0;
+                        const clp = litersEst * price;
+                        return <span>Bencina (est.): <strong>CLP {Math.round(clp).toLocaleString()}</strong></span>;
+                      })()}
+                    </div>
+                    <div style={{display:'flex', justifyContent:'flex-end'}}>
+                      <button className="btn" onClick={()=>rmEntry(r.id)} title="Eliminar"><Trash2 size={16}/> Eliminar</button>
+                    </div>
+                  </div>
+                </Card>
               ))}
-            </tbody>
-            </table>
-          </div>
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table className="table" style={{fontSize:14}}>
+                <thead>
+                  <tr>
+                    <th colSpan={5}>Jornada</th>
+                    <th colSpan={3}>Ingresos</th>
+                    <th></th>
+                  </tr>
+                  <tr>
+                    <th>Fecha</th><th>Horas</th><th>Viajes</th><th>Km inicio</th><th>Km final</th>
+                    <th>Bruto</th><th>Efectivo</th><th>Bencina (est.)</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map(r=> (
+                    <tr key={r.id}>
+                      <td><input type="date" value={r.date} onChange={e=>patchEntry(r.id,{date:e.target.value})}/></td>
+                      <td><InputNum step={0.1} value={r.hours} onChange={(v)=>patchEntry(r.id,{hours:v})} /></td>
+                      <td><InputNum value={r.trips} onChange={(v)=>patchEntry(r.id,{trips:v})} /></td>
+                      <td><InputNum value={r.odometerStart||0} onChange={(v)=>patchEntry(r.id,{odometerStart:v})} /></td>
+                      <td><InputNum value={r.odometerEnd||0} onChange={(v)=>patchEntry(r.id,{odometerEnd:v})} /></td>
+                      <td><InputNum value={r.gross} onChange={(v)=>patchEntry(r.id,{gross:v})} /></td>
+                      <td><InputNum value={r.cash} onChange={(v)=>patchEntry(r.id,{cash:v})} /></td>
+                      <td style={{color:'#6b7280'}}>
+                        {(() => {
+                          const kms = Math.max(0, (Number(r.odometerEnd)||0) - (Number(r.odometerStart)||0));
+                          const veh = vehicles.find(v => v.id === (r.vehicleId || '')) || vehicles.find(v=>v.id===vehicleId);
+                          const kmPerL = veh?.kmPerL || 0;
+                          const litersEst = kmPerL>0 ? (kms / kmPerL) : 0;
+                          const price = (Number(r.pricePerL)||0) || avgPricePerL || 0;
+                          const clp = litersEst * price;
+                          return `CLP ${Math.round(clp).toLocaleString()}`;
+                        })()}
+                      </td>
+                      <td style={{textAlign:'right'}}>
+                        <button className="btn" onClick={()=>rmEntry(r.id)} title="Eliminar"><Trash2 size={16}/></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       )}
 
@@ -721,97 +776,177 @@ export default function App(){
               </select>
             </div>
           </div>
-          <div className="table-wrap">
-            <table className="table" style={{fontSize:14}}>
-            <thead>
-              <tr>
-                <th>Fecha</th><th>Km inicio</th><th>Km final</th><th>$/L</th><th>Total</th><th>Litros</th><th>Estación</th><th>Boleta</th><th></th>
-              </tr>
-            </thead>
-            <tbody>
+
+          {isMobile ? (
+            <div style={{display:'grid', gap:12}}>
               {entries.map(r=> (
-                <tr key={r.id}>
-                  <td><input type="date" value={r.date} onChange={e=>patchEntry(r.id,{date:e.target.value})}/></td>
-                  <td>
-                    <InputNum value={r.odometerStart||0} onChange={(v)=>{
-                      const next:any = { odometerStart: v };
-                      const veh = vehicles.find(vh => vh.id === (r.vehicleId || '')) || vehicles.find(vh=>vh.id===vehicleId);
-                      const kmPerL = veh?.kmPerL || 0;
-                      const kms = Math.max(0, (Number(r.odometerEnd)||0) - v);
-                      if (kmPerL>0 && (Number(r.liters)||0)===0) {
-                        const estLit = kms / kmPerL;
-                        next.liters = estLit;
-                        const ppl = Number(r.pricePerL)||0; if (ppl>0) next.fuelCLP = Math.round(estLit * ppl);
-                      }
-                      patchEntry(r.id,next);
-                    }}/>
-                  </td>
-                  <td>
-                    <InputNum value={r.odometerEnd||0} onChange={(v)=>{
-                      const next:any = { odometerEnd: v };
-                      const veh = vehicles.find(vh => vh.id === (r.vehicleId || '')) || vehicles.find(vh=>vh.id===vehicleId);
-                      const kmPerL = veh?.kmPerL || 0;
-                      const kms = Math.max(0, v - (Number(r.odometerStart)||0));
-                      if (kmPerL>0 && (Number(r.liters)||0)===0) {
-                        const estLit = kms / kmPerL;
-                        next.liters = estLit;
-                        const ppl = Number(r.pricePerL)||0; if (ppl>0) next.fuelCLP = Math.round(estLit * ppl);
-                      }
-                      patchEntry(r.id,next);
-                    }}/>
-                  </td>
-                  {/* $/L */}
-                  <td>
-                    <InputNum value={r.pricePerL||0} onChange={(v)=>{
-                      const next:any = { pricePerL: v };
-                      const total = Number(r.fuelCLP)||0;
-                      const liters = Number(r.liters)||0;
-                      // Si hay total y (no hay litros o vienen de odómetro), calcula litros = total / $/L
-                      if (v>0 && total>0 && liters===0) {
-                        next.liters = total / v;
-                      }
-                      // Si ya hay litros, actualiza total = litros * $/L
-                      if (v>0 && liters>0) {
-                        next.fuelCLP = Math.round(liters * v);
-                      }
-                      patchEntry(r.id,next);
-                    }}/>
-                  </td>
-                  {/* Total */}
-                  <td>
-                    <InputNum value={r.fuelCLP} onChange={(v)=>{
-                      const next:any = { fuelCLP: v };
-                      const ppl = Number(r.pricePerL)||0;
-                      const liters = Number(r.liters)||0;
-                      // Si hay $/L y no hay litros, calcula litros = total / $/L
-                      if (ppl>0 && liters===0) {
-                        next.liters = v / ppl;
-                      }
-                      patchEntry(r.id,next);
-                    }}/>
-                  </td>
-                  {/* Litros */}
-                  <td>
-                    <InputNum value={r.liters||0} onChange={(v)=>{
-                      const next:any = { liters: v };
-                      const ppl = Number(r.pricePerL)||0;
-                      // Si hay $/L, recalcula total = litros * $/L
-                      if (ppl>0) next.fuelCLP = Math.round(v * ppl);
-                      patchEntry(r.id,next);
-                    }}/>
-                  </td>
-                  <td><input value={r.station||''} onChange={e=>patchEntry(r.id,{station:e.target.value})} placeholder="Copec, Shell…"/></td>
-                  <td>
-                    {isMobile ? (
+                <Card key={r.id}>
+                  <div style={{display:'grid', gap:10}}>
+                    <div>
+                      <label style={{color:'#6b7280',fontSize:12}}>Fecha</label>
+                      <input type="date" value={r.date} onChange={e=>patchEntry(r.id,{date:e.target.value})}/>
+                    </div>
+                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+                      <div>
+                        <label style={{color:'#6b7280',fontSize:12}}>Km inicio</label>
+                        <InputNum value={r.odometerStart||0} onChange={(v)=>{
+                          const next:any = { odometerStart: v };
+                          const veh = vehicles.find(vh => vh.id === (r.vehicleId || '')) || vehicles.find(vh=>vh.id===vehicleId);
+                          const kmPerL = veh?.kmPerL || 0;
+                          const kms = Math.max(0, (Number(r.odometerEnd)||0) - v);
+                          if (kmPerL>0 && (Number(r.liters)||0)===0) {
+                            const estLit = kms / kmPerL;
+                            next.liters = estLit;
+                            const ppl = Number(r.pricePerL)||0; if (ppl>0) next.fuelCLP = Math.round(estLit * ppl);
+                          }
+                          patchEntry(r.id,next);
+                        }} />
+                      </div>
+                      <div>
+                        <label style={{color:'#6b7280',fontSize:12}}>Km final</label>
+                        <InputNum value={r.odometerEnd||0} onChange={(v)=>{
+                          const next:any = { odometerEnd: v };
+                          const veh = vehicles.find(vh => vh.id === (r.vehicleId || '')) || vehicles.find(vh=>vh.id===vehicleId);
+                          const kmPerL = veh?.kmPerL || 0;
+                          const kms = Math.max(0, v - (Number(r.odometerStart)||0));
+                          if (kmPerL>0 && (Number(r.liters)||0)===0) {
+                            const estLit = kms / kmPerL;
+                            next.liters = estLit;
+                            const ppl = Number(r.pricePerL)||0; if (ppl>0) next.fuelCLP = Math.round(estLit * ppl);
+                          }
+                          patchEntry(r.id,next);
+                        }} />
+                      </div>
+                    </div>
+                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+                      <div>
+                        <label style={{color:'#6b7280',fontSize:12}}>$ / L</label>
+                        <InputNum value={r.pricePerL||0} onChange={(v)=>{
+                          const next:any = { pricePerL: v };
+                          const total = Number(r.fuelCLP)||0;
+                          const liters = Number(r.liters)||0;
+                          if (v>0 && total>0 && liters===0) next.liters = total / v; // litros = total / $/L
+                          if (v>0 && liters>0) next.fuelCLP = Math.round(liters * v); // total = litros * $/L
+                          patchEntry(r.id,next);
+                        }} />
+                      </div>
+                      <div>
+                        <label style={{color:'#6b7280',fontSize:12}}>Total CLP</label>
+                        <InputNum value={r.fuelCLP} onChange={(v)=>{
+                          const next:any = { fuelCLP: v };
+                          const ppl = Number(r.pricePerL)||0;
+                          const liters = Number(r.liters)||0;
+                          if (ppl>0 && liters===0) next.liters = v / ppl; // litros = total / $/L
+                          patchEntry(r.id,next);
+                        }} />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{color:'#6b7280',fontSize:12}}>Litros</label>
+                      <InputNum value={r.liters||0} onChange={(v)=>{
+                        const next:any = { liters: v };
+                        const ppl = Number(r.pricePerL)||0;
+                        if (ppl>0) next.fuelCLP = Math.round(v * ppl); // total = litros * $/L
+                        patchEntry(r.id,next);
+                      }} />
+                    </div>
+                    <div>
+                      <label style={{color:'#6b7280',fontSize:12}}>Estación</label>
+                      <input value={r.station||''} onChange={e=>patchEntry(r.id,{station:e.target.value})} placeholder="Copec, Shell…"/>
+                    </div>
+                    <div>
+                      {/* OCR: desactivado en móvil */}
                       <div className="upload" style={{textAlign:'left'}}>
                         <div style={{fontSize:14, fontWeight:700, marginBottom:6}}>OCR desactivado en móvil</div>
-                        <div className="hint">Para estabilidad en el teléfono, usa la entrada manual:<br/>ingresa <strong>$/L</strong> y <strong>Total</strong> y calculamos <strong>Litros</strong> automáticamente.</div>
+                        <div className="hint">Usa la entrada manual: <strong>$/L</strong> + <strong>Total</strong> → calculamos <strong>Litros</strong>.</div>
                       </div>
-                    ) : (
-                      <label className="btn" style={{display:'inline-flex', alignItems:'center', gap:8}}>
-                        Subir boleta (OCR)
-                        <input type="file" accept="image/*,.jpg,.jpeg,.png,.webp" style={{display:'none'}}
-                          onChange={async (e)=>{
+                    </div>
+                    <div style={{display:'flex', justifyContent:'flex-end'}}>
+                      <button className="btn" onClick={()=>rmEntry(r.id)} title="Eliminar"><Trash2 size={16}/> Eliminar</button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table className="table" style={{fontSize:14}}>
+                <thead>
+                  <tr>
+                    <th>Fecha</th><th>Km inicio</th><th>Km final</th><th>$/L</th><th>Total</th><th>Litros</th><th>Estación</th><th>Boleta</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map(r=> (
+                    <tr key={r.id}>
+                      <td><input type="date" value={r.date} onChange={e=>patchEntry(r.id,{date:e.target.value})}/></td>
+                      <td>
+                        <InputNum value={r.odometerStart||0} onChange={(v)=>{
+                          const next:any = { odometerStart: v };
+                          const veh = vehicles.find(vh => vh.id === (r.vehicleId || '')) || vehicles.find(vh=>vh.id===vehicleId);
+                          const kmPerL = veh?.kmPerL || 0;
+                          const kms = Math.max(0, (Number(r.odometerEnd)||0) - v);
+                          if (kmPerL>0 && (Number(r.liters)||0)===0) {
+                            const estLit = kms / kmPerL;
+                            next.liters = estLit;
+                            const ppl = Number(r.pricePerL)||0; if (ppl>0) next.fuelCLP = Math.round(estLit * ppl);
+                          }
+                          patchEntry(r.id,next);
+                        }}/>
+                      </td>
+                      <td>
+                        <InputNum value={r.odometerEnd||0} onChange={(v)=>{
+                          const next:any = { odometerEnd: v };
+                          const veh = vehicles.find(vh => vh.id === (r.vehicleId || '')) || vehicles.find(vh=>vh.id===vehicleId);
+                          const kmPerL = veh?.kmPerL || 0;
+                          const kms = Math.max(0, v - (Number(r.odometerStart)||0));
+                          if (kmPerL>0 && (Number(r.liters)||0)===0) {
+                            const estLit = kms / kmPerL;
+                            next.liters = estLit;
+                            const ppl = Number(r.pricePerL)||0; if (ppl>0) next.fuelCLP = Math.round(estLit * ppl);
+                          }
+                          patchEntry(r.id,next);
+                        }}/>
+                      </td>
+                      <td>
+                        <InputNum value={r.pricePerL||0} onChange={(v)=>{
+                          const next:any = { pricePerL: v };
+                          const total = Number(r.fuelCLP)||0;
+                          const liters = Number(r.liters)||0;
+                          if (v>0 && total>0 && liters===0) next.liters = total / v;
+                          if (v>0 && liters>0) next.fuelCLP = Math.round(liters * v);
+                          patchEntry(r.id,next);
+                        }}/>
+                      </td>
+                      <td>
+                        <InputNum value={r.fuelCLP} onChange={(v)=>{
+                          const next:any = { fuelCLP: v };
+                          const ppl = Number(r.pricePerL)||0;
+                          const liters = Number(r.liters)||0;
+                          if (ppl>0 && liters===0) next.liters = v / ppl;
+                          patchEntry(r.id,next);
+                        }}/>
+                      </td>
+                      <td>
+                        <InputNum value={r.liters||0} onChange={(v)=>{
+                          const next:any = { liters: v };
+                          const ppl = Number(r.pricePerL)||0;
+                          if (ppl>0) next.fuelCLP = Math.round(v * ppl);
+                          patchEntry(r.id,next);
+                        }}/>
+                      </td>
+                      <td><input value={r.station||''} onChange={e=>patchEntry(r.id,{station:e.target.value})} placeholder="Copec, Shell…"/></td>
+                      <td>
+                        {isMobile ? (
+                          <div className="upload" style={{textAlign:'left'}}>
+                            <div style={{fontSize:14, fontWeight:700, marginBottom:6}}>OCR desactivado en móvil</div>
+                            <div className="hint">Usa la entrada manual: <strong>$/L</strong> + <strong>Total</strong> → calculamos <strong>Litros</strong>.</div>
+                          </div>
+                        ) : (
+                          <label className="btn" style={{display:'inline-flex', alignItems:'center', gap:8}}>
+                            Subir boleta (OCR)
+                            <input type="file" accept="image/*,.jpg,.jpeg,.png,.webp" style={{display:'none'}}
+                              onChange={async (e)=>{
   const file=e.target.files?.[0]; if(!file) return;
   setOcr(prev=>({...prev, [r.id]: { loading:true, error: undefined, info: undefined }}));
   try{
@@ -831,10 +966,10 @@ export default function App(){
     setOcr(prev=>({...prev, [r.id]: { loading:false, error: 'No pude leer la boleta. Intenta con una foto nítida.' }}));
   }finally{ e.currentTarget.value=''; }
 }}
-                        />
-                      </label>
-                    )}
-                    {(() => {
+                            />
+                          </label>
+                        )}
+                        {(() => {
   const st = ocr[r.id];
   if (!st) return null;
   if (st.loading) return <div style={{fontSize:12,color:'#9ca3af',marginTop:6}}>Leyendo boleta…</div>;
@@ -852,15 +987,16 @@ export default function App(){
     </div>
   );
 })()}
-                  </td>
-                  <td style={{textAlign:'right'}}>
-                    <button className="btn" onClick={()=>rmEntry(r.id)} title="Eliminar"><Trash2 size={16}/></button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            </table>
-          </div>
+                      </td>
+                      <td style={{textAlign:'right'}}>
+                        <button className="btn" onClick={()=>rmEntry(r.id)} title="Eliminar"><Trash2 size={16}/></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       )}
 

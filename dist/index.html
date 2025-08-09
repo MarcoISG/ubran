@@ -2,7 +2,8 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>Ubran</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#0b1220" />
@@ -32,6 +33,9 @@
         --shadow-card: 0 8px 24px rgba(11,18,32,0.10);
         --shadow-pill: 0 6px 14px rgba(16,185,129,.18);
         --font-weight-bold: 800;
+  /* Nuevos: fondo y texto para headers/barras sticky */
+  --color-header-bg: var(--color-bg-card, #151c2c);
+  --color-header-text: var(--color-text, #f8fafc);
       }
       body {
         background: var(--color-bg);
@@ -178,6 +182,18 @@
         justify-content: space-between;
         gap: 8px;
         margin: 8px 0 10px;
+        background: var(--color-header-bg);
+        color: var(--color-header-text);
+      }
+
+      /* Forzar fondo y texto en headers sticky y barras superiores */
+      header, .sticky-header, .table thead th, .pill-tabs, .table th, .table thead {
+        background: var(--color-header-bg) !important;
+        color: var(--color-header-text) !important;
+      }
+      /* Si hay headers sticky, asegúrate que tengan fondo y sombra */
+      .sticky-header, .table thead th {
+        box-shadow: 0 2px 8px rgba(11,18,32,0.10);
       }
       /* Inputs & forms */
       label {
@@ -219,9 +235,9 @@
       }
       .table th {
         text-align: left;
-        color: var(--color-muted);
+        color: var(--color-header-text);
         font-size: 12px;
-        background: var(--color-table-header-bg);
+        background: var(--color-header-bg);
         letter-spacing: .02em;
         font-weight: 700;
       }
@@ -375,8 +391,113 @@
       /* Extra: prevent long texts from pushing controls */
       .nowrap{ white-space: nowrap; }
       .wrap{ white-space: normal; }
+
+      /* ===== FIX #2: textos fuera de zona visible (MÓVIL) ===== */
+      @media (max-width: 640px){
+        /* Contenido nunca más ancho que la pantalla */
+        body, #root { max-width: 100vw; overflow-x: hidden; }
+
+        /* Tarjetas: evitar desbordes y permitir salto de línea */
+        .card {
+          word-wrap: break-word;
+          overflow-wrap: anywhere;
+        }
+
+        /* Títulos y KPIs: que corten en varias líneas si hace falta */
+        .card-title, h1, h2, h3 {
+          white-space: normal;      /* permite saltos */
+          word-break: break-word;   /* rompe palabras largas */
+        }
+
+        /* Grids: una sola columna en móvil (evita aplastamientos) */
+        .kpi-grid,
+        .grid-2, .grid-3, .grid-4 {
+          grid-template-columns: 1fr !important;
+        }
+
+        /* Inputs/Selects: siempre ocupar 100% y sin desbordar */
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        select, textarea {
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;         /* evita que fuerzas de flex los estiren */
+          box-sizing: border-box;
+        }
+
+        /* Badges/pills: permitir salto si el texto es largo */
+        .badge, .pill {
+          white-space: normal;
+        }
+
+        /* Tablas: envolver texto y no empujar los botones */
+        .table td, .table th {
+          white-space: normal;          /* ya no una línea */
+          word-break: break-word;
+        }
+
+        /* Acciones (última columna) en su propia fila para que no aprieten el resto */
+        .table-row-actions {
+          justify-content: flex-start;
+          flex-wrap: wrap;
+          row-gap: 8px;
+        }
+
+        /* Evitar que algo meta scroll lateral por márgenes negativos o widths raros */
+        * { max-width: 100%; }
+      }
+      /* ===== FIX #3: evitar scroll bloqueado con teclado en móvil ===== */
+      html, body { min-height: 100%; }
+      @supports (height: 100svh) {
+        body { min-height: 100svh; }
+      }
+      @supports (height: 100dvh) {
+        body { min-height: 100dvh; }
+      }
+      body { padding-bottom: env(safe-area-inset-bottom, 0); }
+
+      @media (max-width: 640px){
+        /* Desactivar sticky en móvil */
+        .table thead th,
+        .table th:last-child,
+        .table td:last-child {
+          position: static !important;
+        }
+        .table-wrap { -webkit-overflow-scrolling: touch; overflow-x: auto; overflow-y: visible; }
+
+        /* Evitar que los inputs queden ocultos detrás del teclado */
+        input, select, textarea {
+          scroll-margin-bottom: 140px; /* espacio al enfocar */
+        }
+      }
+    /* ===== FIX #5: Ajustes 100% móvil (forzar una columna y evitar solapes) ===== */
+    @media (max-width: 640px){
+      /* Forzar cualquier grid inline a 1 columna en móvil (incluye Ajustes) */
+      [style*="grid-template-columns"]{
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+      }
+      
+      /* Filas flex con labels y controles: permitir wrap y espacio */
+      [style*="display:flex"][style*="align-items:center"]{
+        flex-wrap: wrap;
+        row-gap: 6px;
+      }
+
+      /* Labels y toggles más legibles en tarjetas de Ajustes */
+      label{ display:flex; align-items:flex-start; gap:10px; }
+      label + * { margin-top: 6px; }
+
+      /* Separación vertical entre bloques de ajustes */
+      .section, .card { margin-bottom: 14px; }
+
+      /* Inputs con margen inferior para no quedar pegados */
+      input, select, textarea { margin-bottom: 8px; }
+    }
     </style>
-    <script type="module" crossorigin src="/assets/index-CL82rbP3.js"></script>
+    <script type="module" crossorigin src="/assets/index-xJIwIHTh.js"></script>
   </head>
   <body>
     <div id="root"></div>
