@@ -5,7 +5,45 @@ import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tool
 import Tesseract from 'tesseract.js';
 
 import { initializeApp } from "firebase/app";
+
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User as FbUser } from "firebase/auth";
+
+const GLOBAL_CSS = `
+  :root{
+    --color-bg:#0b1220;            /* fondo app */
+    --color-text:#e5e7eb;          /* texto */
+    --color-border:#1f2a44;        /* bordes */
+    --color-bg-card:#0e1526;       /* tarjetas */
+    --color-bg-card-soft:#0b1220;  /* barras/progress */
+    --color-accent:#10b981;        /* verde */
+  }
+  html,body,#root{height:100%;background:var(--color-bg);color:var(--color-text);}  
+  body{margin:0;font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";}
+  input, select, button{background:#0e1526;color:var(--color-text);border:1px solid var(--color-border);border-radius:10px;padding:8px 10px;}
+  input:focus, select:focus, button:focus{outline:none;box-shadow:0 0 0 2px rgba(16,185,129,.3);} 
+
+  .card{background:var(--color-bg-card);border:1px solid var(--color-border);border-radius:12px;}
+  .card--soft{background:rgba(255,255,255,0.02);} 
+
+  .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--color-border);background:#111827;border-radius:10px;color:#fff;padding:8px 12px;cursor:pointer}
+  .btn:hover{filter:brightness(1.05)}
+  .pill{display:inline-flex;align-items:center;justify-content:center;padding:8px 10px;border:1px solid var(--color-border);border-radius:999px;background:#0e1526;color:var(--color-text);cursor:pointer}
+  .pill--active{background:var(--color-accent);color:#06251b;border-color:transparent}
+
+  .pill-tabs{display:grid;grid-auto-flow:column;gap:8;margin-top:12;overflow:auto;padding-bottom:4px}
+  .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12}
+  .charts-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12;margin-top:12}
+  @media(max-width:1024px){.charts-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:720px){.charts-grid{grid-template-columns:1fr}}
+
+  .table-wrap{overflow:auto;border:1px solid var(--color-border);border-radius:12px}
+  table.table{width:100%;border-collapse:separate;border-spacing:0}
+  table.table thead th{position:sticky;top:0;background:#0e1526;border-bottom:1px solid var(--color-border);padding:10px;font-weight:600;text-align:left}
+  table.table tbody td{border-top:1px solid var(--color-border);padding:8px}
+
+  .upload{border:1px dashed var(--color-border);border-radius:10px;padding:10px}
+  .badge{display:inline-block;background:#0e1526;border:1px solid var(--color-border);border-radius:999px;padding:4px 8px}
+`;
 
 // --- Firebase (Google Auth) ---
 const firebaseConfig = {
@@ -628,7 +666,8 @@ export default function App(){
   }
 
   return (
-    <div style={{maxWidth:1160, margin:"0 auto", padding:20, fontFamily:"ui-sans-serif"}}>
+    <div style={{maxWidth:1160, margin:"0 auto", padding:20, paddingBottom: isMobile ? 88 : 20, fontFamily:"ui-sans-serif"}}>
+      <style>{GLOBAL_CSS}</style>
       {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <h1 style={{display:"flex",alignItems:"center",gap:10}}>
@@ -803,7 +842,10 @@ export default function App(){
 
       {tab==='dashboard' && (
         isMobile ? (
-          <MobileDashboard totals={totals} monthFuel={monthFuel} settings={settings} />
+          <>
+            <MobileDashboard totals={totals} monthFuel={monthFuel} settings={settings} />
+            <AdSlot settings={settings} />
+          </>
         ) : (
           <div className="charts-grid">
             <Card>
@@ -1432,6 +1474,33 @@ export default function App(){
                 Restar gastos fijos del Neto (usa el restante del mes)
               </label>
             </div>
+            <div style={{gridColumn:'1 / -1', border:'1px solid var(--color-border)', borderRadius:12, padding:12}}>
+              <div style={{fontWeight:700, marginBottom:8}}>Publicidad (web)</div>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+                <label style={{display:'flex',gap:8,alignItems:'center'}}>
+                  <input type="checkbox" checked={!!settings.adsEnabled} onChange={e=>setSettings({...settings, adsEnabled: e.target.checked})}/>
+                  Activar anuncios
+                </label>
+                <div>
+                  <label style={{color:'#6b7280',fontSize:12}}>Proveedor</label>
+                  <select value={settings.adProvider} onChange={e=>setSettings({...settings, adProvider: e.target.value as any})}>
+                    <option value="none">—</option>
+                    <option value="adsense">AdSense</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{color:'#6b7280',fontSize:12}}>AdSense Client ID</label>
+                  <input placeholder="ca-pub-xxxxxxxxxxxxxxxx" value={settings.adsenseClientId} onChange={e=>setSettings({...settings, adsenseClientId: e.target.value})}/>
+                </div>
+                <div>
+                  <label style={{color:'#6b7280',fontSize:12}}>AdSense Slot ID</label>
+                  <input placeholder="XXXXXXXXXX" value={settings.adsenseSlotId} onChange={e=>setSettings({...settings, adsenseSlotId: e.target.value})}/>
+                </div>
+                <div style={{gridColumn:'1 / -1', color:'#6b7280', fontSize:12}}>
+                  Consejo: usa anuncios de prueba hasta publicar. Para apps nativas cambiaremos a AdMob con Capacitor.
+                </div>
+              </div>
+            </div>
             <div style={{gridColumn:"1 / -1"}}>
               <label style={{color:"#6b7280",fontSize:12}}>Lugar favorito (para abrir en Waze)</label>
               <div style={{display:"flex",gap:8}}>
@@ -1456,6 +1525,7 @@ export default function App(){
         </Card>
       )}
 
+      {isMobile && <AdSlot settings={settings} style={{position:'sticky', bottom:8}}/>}
       {isMobile && <MobileNav tab={tab} setTab={setTab} />}
       <div style={{marginTop:14,color:"#6b7280",fontSize:12}}>© Ubran — versión rápida offline</div>
     </div>
