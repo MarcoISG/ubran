@@ -403,7 +403,7 @@ export default function App(){
     "DFSK": ["Glory 560", "Glory 580"],
     "Volvo": ["S40", "S60", "XC40", "XC60"]
   };
-  const [tab, setTab] = useState<"dashboard"|"data"|"fuel"|"fixed"|"goals"|"vehicles"|"settings">("dashboard");
+  const [tab, setTab] = useState<"dashboard"|"data"|"fuel"|"fixed"|"goals"|"vehicles"|"maintenance"|"routes"|"stats"|"settings">("dashboard");
   const [ocr, setOcr] = useState<Record<string, OcrState>>({});
   const [isMobile, setIsMobile] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -762,6 +762,9 @@ export default function App(){
         <TabBtn active={tab==='fixed'} onClick={()=>setTab('fixed')}>Fijos</TabBtn>
         <TabBtn active={tab==='goals'} onClick={()=>setTab('goals')}>Metas</TabBtn>
         <TabBtn active={tab==='vehicles'} onClick={()=>setTab('vehicles')}>Vehículos</TabBtn>
+        <TabBtn active={tab==='maintenance'} onClick={()=>setTab('maintenance')}>Mantenimiento</TabBtn>
+        <TabBtn active={tab==='routes'} onClick={()=>setTab('routes')}>Rutas</TabBtn>
+        <TabBtn active={tab==='stats'} onClick={()=>setTab('stats')}>Estadísticas</TabBtn>
         <TabBtn active={tab==='settings'} onClick={()=>setTab('settings')}>Ajustes</TabBtn>
       </div>
 
@@ -1535,10 +1538,15 @@ export default function App(){
 
 function AdSlot({ settings, style }:{ settings: typeof DEFAULT_SETTINGS; style?: React.CSSProperties }){
   const { adsEnabled, adProvider, adsenseClientId, adsenseSlotId } = settings as any;
+  const isConfigured = !!adsEnabled && adProvider === 'adsense' && !!adsenseClientId && !!adsenseSlotId;
+  const isDev = typeof window !== 'undefined' && (
+    location.hostname === 'localhost' ||
+    location.hostname === '127.0.0.1' ||
+    location.hostname.endsWith('.local')
+  );
 
   useEffect(()=>{
-    if (!adsEnabled || adProvider!=='adsense') return;
-    if (!adsenseClientId || !adsenseSlotId) return;
+    if (!isConfigured) return;
     const id = 'adsbygoogle-js';
     if (!document.getElementById(id)){
       const s = document.createElement('script');
@@ -1555,9 +1563,16 @@ function AdSlot({ settings, style }:{ settings: typeof DEFAULT_SETTINGS; style?:
     };
     const t = setTimeout(tryPush, 500);
     return ()=>clearTimeout(t);
-  }, [adsEnabled, adProvider, adsenseClientId, adsenseSlotId]);
+  }, [adsEnabled, adProvider, adsenseClientId, adsenseSlotId, isConfigured]);
 
-  if (!adsEnabled || adProvider!=='adsense' || !adsenseClientId || !adsenseSlotId){
+  if (!isConfigured){
+    if (isDev){
+      return (
+        <div className="card card--soft" style={{margin:'8px 0', height:60, display:'grid', placeItems:'center', color:'#9ca3af', fontSize:12}}>
+          Área de anuncio (prueba)
+        </div>
+      );
+    }
     return null;
   }
 

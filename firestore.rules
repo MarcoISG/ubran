@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Función helper para verificar autenticación
+    function isAuth() {
+      return request.auth != null;
+    }
+    
+    // Función helper para verificar propiedad del documento
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Reglas para colección users
+    match /users/{userId} {
+      allow read: if isAuth() && isOwner(userId);
+      allow create: if isAuth() && isOwner(userId);
+      allow update: if isAuth() && isOwner(userId);
+      allow delete: if isAuth() && isOwner(userId);
+    }
+    
+    // Reglas para entries (registros diarios)
+    match /entries/{entryId} {
+      allow read: if isAuth() && isOwner(resource.data.userId);
+      allow create: if isAuth() && isOwner(request.resource.data.userId);
+      allow update: if isAuth() && isOwner(resource.data.userId);
+      allow delete: if isAuth() && isOwner(resource.data.userId);
+    }
+    
+    // Reglas para vehicles
+    match /vehicles/{vehicleId} {
+      allow read: if isAuth() && isOwner(resource.data.userId);
+      allow create: if isAuth() && isOwner(request.resource.data.userId);
+      allow update: if isAuth() && isOwner(resource.data.userId);
+      allow delete: if isAuth() && isOwner(resource.data.userId);
+    }
+    
+    // Reglas para goals
+    match /goals/{goalId} {
+      allow read: if isAuth() && isOwner(resource.data.userId);
+      allow create: if isAuth() && isOwner(request.resource.data.userId);
+      allow update: if isAuth() && isOwner(resource.data.userId);
+      allow delete: if isAuth() && isOwner(resource.data.userId);
+    }
+    
+    // Reglas para expenses
+    match /expenses/{expenseId} {
+      allow read: if isAuth() && isOwner(resource.data.userId);
+      allow create: if isAuth() && isOwner(request.resource.data.userId);
+      allow update: if isAuth() && isOwner(resource.data.userId);
+      allow delete: if isAuth() && isOwner(resource.data.userId);
+    }
+    
+    // Reglas para maintenance
+    match /maintenance/{maintenanceId} {
+      allow read: if isAuth() && isOwner(resource.data.userId);
+      allow create: if isAuth() && isOwner(request.resource.data.userId);
+      allow update: if isAuth() && isOwner(resource.data.userId);
+      allow delete: if isAuth() && isOwner(resource.data.userId);
+    }
+    
+    // Reglas para routes
+    match /routes/{routeId} {
+      allow read: if isAuth() && isOwner(resource.data.userId);
+      allow create: if isAuth() && isOwner(request.resource.data.userId);
+      allow update: if isAuth() && isOwner(resource.data.userId);
+      allow delete: if isAuth() && isOwner(resource.data.userId);
+    }
+    
+    // Reglas para statistics
+    match /statistics/{statId} {
+      allow read: if isAuth() && isOwner(resource.data.userId);
+      allow create: if isAuth() && isOwner(request.resource.data.userId);
+      allow update: if isAuth() && isOwner(resource.data.userId);
+      allow delete: if isAuth() && isOwner(resource.data.userId);
+    }
+  }
+}

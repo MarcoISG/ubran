@@ -9,11 +9,17 @@
     "preview": "vite preview --host"
   },
   "dependencies": {
+    "@nivo/core": "^0.99.0",
+    "@nivo/line": "^0.99.0",
+    "@react-firebase/auth": "^0.2.10",
+    "@react-firebase/firestore": "^0.5.5",
+    "@react-google-maps/api": "^2.20.7",
+    "date-fns": "^4.1.0",
     "firebase": "^12.1.0",
     "lucide-react": "^0.469.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "recharts": "^2.10.4",
+    "recharts": "^2.15.4",
     "tesseract.js": "^6.0.1"
   },
   "devDependencies": {
