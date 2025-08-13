@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview --host"
+    "preview": "vite preview --host",
+    "generate-pwa-assets": "pwa-assets-generator --preset minimal public/icon.png",
+    "deploy": "npm run build && firebase deploy"
   },
   "dependencies": {
     "@nivo/core": "^0.99.0",
@@ -20,7 +22,9 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "recharts": "^2.15.4",
-    "tesseract.js": "^6.0.1"
+    "tesseract.js": "^6.0.1",
+    "vite-plugin-pwa": "^1.0.2",
+    "workbox-window": "^7.3.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.66",
