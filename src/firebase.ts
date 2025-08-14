@@ -13,10 +13,30 @@ const firebaseConfig = {
 };
 
 // Inicializar Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const messaging = getMessaging(app);
+let app;
+try {
+  app = initializeApp(firebaseConfig);
+} catch (error) {
+  console.error('Error al inicializar Firebase:', error);
+  throw error;
+}
+
+// Inicializar servicios
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+let messaging: any;
+
+try {
+  messaging = getMessaging(app);
+} catch (error) {
+  console.warn('Messaging no disponible:', error);
+  messaging = null;
+}
+
+// Verificar la inicialización
+if (!auth || !db) {
+  throw new Error('Firebase no se inicializó correctamente');
+}
 
 // Autenticación
 export const loginWithEmail = async (email: string, password: string) => {

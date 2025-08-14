@@ -9,7 +9,8 @@ import {
   query,
   where,
   orderBy,
-  Timestamp
+  Timestamp,
+  setDoc
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import type { Entry, Vehicle, Goal, FixedExpense, Maintenance, Route, Statistics } from '../types/models';

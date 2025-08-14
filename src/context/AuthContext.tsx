@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import { loginWithEmail, registerWithEmail, logout } from './firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth, loginWithEmail, registerWithEmail, logout } from '../firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -19,13 +19,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    let unsubscribe: () => void;
+    
+    try {
+      if (!auth) {
+        throw new Error('Auth no inicializado');
+      }
+      
+      unsubscribe = onAuthStateChanged(auth, (user) => {
+        setUser(user);
+        setLoading(false);
+      }, (error) => {
+        console.error('Error en auth state:', error);
+        setError(error.message);
+        setLoading(false);
+      });
+    } catch (error: any) {
+      console.error('Error en la inicialización de auth:', error);
+      setError(error.message);
       setLoading(false);
-    });
+    }
 
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
