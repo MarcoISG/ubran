@@ -1,11 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { AuthProvider } from './context/AuthContext';
-import { auth } from './firebase';
+import { AuthProvider } from './contexts/AuthContext';
 
-// Asegurar que Firebase esté inicializado
-console.log('Iniciando aplicación...', auth ? 'Firebase OK' : 'Firebase no inicializado');
+// Asegurar que la app se monta correctamente
+console.log('Iniciando aplicación...');
 
 const root = document.getElementById('root');
 if (!root) {

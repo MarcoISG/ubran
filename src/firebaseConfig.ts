@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
+import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 
 const firebaseConfig = {
   apiKey: "AIzaSyApQzLZ8LaW01pq5l-WruIhJzfSpe9sh2k",
@@ -12,4 +12,18 @@ const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
-export const analytics = getAnalytics(app);
+
+// Initialize Analytics only in production and when supported (browser)
+let analyticsInstance: Analytics | undefined;
+if (import.meta.env.PROD && typeof window !== "undefined") {
+  isSupported()
+    .then((supported) => {
+      if (supported) {
+        analyticsInstance = getAnalytics(app);
+      }
+    })
+    .catch(() => {
+      // Silently ignore analytics init errors in unsupported/non-browser environments
+    });
+}
+export const analytics = analyticsInstance;
