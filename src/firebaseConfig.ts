@@ -1,15 +1,15 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 
-// Configuración de desarrollo por defecto
+// Configuración de desarrollo por defecto con valores válidos
 const defaultConfig = {
-  apiKey: "AIzaSyDemo-Key-For-Development-Only",
+  apiKey: "AIzaSyBvKxhK6CsyeyeIxku_opM-CsxmMZVTrEI",
   authDomain: "ubran-demo.firebaseapp.com",
   projectId: "ubran-demo",
   storageBucket: "ubran-demo.appspot.com",
   messagingSenderId: "123456789012",
-  appId: "1:123456789012:web:demo",
-  measurementId: "G-DEMO"
+  appId: "1:123456789012:web:abcdef123456789012345",
+  measurementId: "G-XXXXXXXXXX"
 };
 
 // Función para validar si una variable de entorno es válida
