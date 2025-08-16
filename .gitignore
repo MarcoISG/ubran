@@ -37,3 +37,4 @@ Thumbs.db
 # Archivos temporales
 *.tmp
 *.log
+.vercel

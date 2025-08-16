@@ -1,0 +1,23 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="15" fill="#2563eb" stroke="#1d4ed8" stroke-width="1"/>
+  
+  <!-- Car body -->
+  <rect x="9" y="12" width="14" height="5" rx="1" fill="#ffffff"/>
+  
+  <!-- Car windows -->
+  <rect x="10" y="11" width="3" height="2" rx="0.5" fill="#e5e7eb"/>
+  <rect x="15" y="11" width="3" height="2" rx="0.5" fill="#e5e7eb"/>
+  <rect x="20" y="11" width="2" height="2" rx="0.5" fill="#e5e7eb"/>
+  
+  <!-- Car wheels -->
+  <circle cx="11" cy="18" r="1.5" fill="#374151"/>
+  <circle cx="21" cy="18" r="1.5" fill="#374151"/>
+  
+  <!-- Route lines -->
+  <path d="M5 22 Q9 20 13 22 T23 22" stroke="#fbbf24" stroke-width="1" fill="none" stroke-linecap="round"/>
+  
+  <!-- Location pins -->
+  <circle cx="7" cy="23" r="1" fill="#ef4444"/>
+  <circle cx="23" cy="23" r="1" fill="#22c55e"/>
+</svg>

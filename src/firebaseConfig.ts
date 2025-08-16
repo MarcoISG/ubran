@@ -1,31 +1,32 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 
-// Validate required environment variables
-const requiredEnvVars = [
-  'VITE_FIREBASE_API_KEY',
-  'VITE_FIREBASE_AUTH_DOMAIN',
-  'VITE_FIREBASE_PROJECT_ID',
-  'VITE_FIREBASE_STORAGE_BUCKET',
-  'VITE_FIREBASE_MESSAGING_SENDER_ID',
-  'VITE_FIREBASE_APP_ID'
-];
-
-const missingVars = requiredEnvVars.filter(varName => !import.meta.env[varName]);
-if (missingVars.length > 0) {
-  console.error('Missing required Firebase environment variables:', missingVars);
-  throw new Error(`Missing Firebase configuration: ${missingVars.join(', ')}`);
-}
-
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+// Configuración de desarrollo por defecto
+const defaultConfig = {
+  apiKey: "demo-api-key",
+  authDomain: "ubran-demo.firebaseapp.com",
+  projectId: "ubran-demo",
+  storageBucket: "ubran-demo.appspot.com",
+  messagingSenderId: "123456789012",
+  appId: "1:123456789012:web:demo",
+  measurementId: "G-DEMO"
 };
+
+// Usar variables de entorno si están disponibles, sino usar configuración de desarrollo
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || defaultConfig.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || defaultConfig.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || defaultConfig.projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || defaultConfig.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || defaultConfig.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || defaultConfig.appId,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || defaultConfig.measurementId
+};
+
+// Mostrar si estamos usando configuración de desarrollo
+if (firebaseConfig.apiKey === defaultConfig.apiKey) {
+  console.warn('⚠️ Usando configuración de Firebase de desarrollo. Para producción, configura las variables de entorno en .env.local');
+}
 
 console.log('Firebase config loaded for project:', firebaseConfig.projectId);
 

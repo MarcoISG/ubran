@@ -1,10 +1,23 @@
-import { getAuth } from 'firebase/auth';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, enableNetwork, disableNetwork, connectFirestoreEmulator } from 'firebase/firestore';
 import { app } from '../firebaseConfig';
 
 // Exporta instancias únicas basadas en la app real
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Configurar emuladores en desarrollo
+if (import.meta.env.DEV && !import.meta.env.VITE_FIREBASE_API_KEY) {
+  try {
+    // Conectar emuladores solo en desarrollo
+    connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+    connectFirestoreEmulator(db, 'localhost', 8080);
+    console.log('🔧 Emuladores de Firebase conectados para desarrollo');
+  } catch (error) {
+    // Los emuladores ya están conectados o no están disponibles
+    console.log('ℹ️ Emuladores no disponibles, usando configuración de desarrollo sin emuladores');
+  }
+}
 
 // Configuración de conectividad mejorada
 let isOnline = navigator.onLine;
