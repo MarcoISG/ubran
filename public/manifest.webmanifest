@@ -1,23 +1,28 @@
 {
-  "name": "Ubran",
+  "name": "Ubran - Driver Dashboard",
   "short_name": "Ubran",
-  "description": "Dashboard de ganancias y gastos para conductores",
+  "description": "Aplicación móvil para conductores - Dashboard de ganancias y gastos",
   "lang": "es",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0b1224",
   "theme_color": "#0b1224",
+  "categories": ["productivity", "finance", "business"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
