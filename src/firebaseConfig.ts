@@ -3,7 +3,7 @@ import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 
 // Configuración de desarrollo por defecto
 const defaultConfig = {
-  apiKey: "demo-api-key",
+  apiKey: "AIzaSyDemo-Key-For-Development-Only",
   authDomain: "ubran-demo.firebaseapp.com",
   projectId: "ubran-demo",
   storageBucket: "ubran-demo.appspot.com",
@@ -12,20 +12,33 @@ const defaultConfig = {
   measurementId: "G-DEMO"
 };
 
-// Usar variables de entorno si están disponibles, sino usar configuración de desarrollo
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || defaultConfig.apiKey,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || defaultConfig.authDomain,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || defaultConfig.projectId,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || defaultConfig.storageBucket,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || defaultConfig.messagingSenderId,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || defaultConfig.appId,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || defaultConfig.measurementId
+// Función para validar si una variable de entorno es válida
+const isValidEnvVar = (value: string | undefined): boolean => {
+  return value !== undefined && value !== 'y' && value !== '' && value.length > 5;
 };
 
-// Mostrar si estamos usando configuración de desarrollo
-if (firebaseConfig.apiKey === defaultConfig.apiKey) {
-  console.warn('⚠️ Usando configuración de Firebase de desarrollo. Para producción, configura las variables de entorno en .env.local');
+// Usar variables de entorno si están disponibles y son válidas, sino usar configuración de desarrollo
+const firebaseConfig = {
+  apiKey: isValidEnvVar(import.meta.env.VITE_FIREBASE_API_KEY) ? import.meta.env.VITE_FIREBASE_API_KEY : defaultConfig.apiKey,
+  authDomain: isValidEnvVar(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN) ? import.meta.env.VITE_FIREBASE_AUTH_DOMAIN : defaultConfig.authDomain,
+  projectId: isValidEnvVar(import.meta.env.VITE_FIREBASE_PROJECT_ID) ? import.meta.env.VITE_FIREBASE_PROJECT_ID : defaultConfig.projectId,
+  storageBucket: isValidEnvVar(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET) ? import.meta.env.VITE_FIREBASE_STORAGE_BUCKET : defaultConfig.storageBucket,
+  messagingSenderId: isValidEnvVar(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID) ? import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID : defaultConfig.messagingSenderId,
+  appId: isValidEnvVar(import.meta.env.VITE_FIREBASE_APP_ID) ? import.meta.env.VITE_FIREBASE_APP_ID : defaultConfig.appId,
+  measurementId: isValidEnvVar(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID) ? import.meta.env.VITE_FIREBASE_MEASUREMENT_ID : defaultConfig.measurementId
+};
+
+// Mostrar información sobre la configuración actual
+const usingDefaultConfig = firebaseConfig.apiKey === defaultConfig.apiKey;
+if (usingDefaultConfig) {
+  console.warn('⚠️ Usando configuración de Firebase de desarrollo. Para producción, configura las variables de entorno válidas.');
+} else {
+  console.log('✅ Usando configuración de Firebase de producción');
+}
+
+// En producción, mostrar advertencia si las variables no están configuradas correctamente
+if (import.meta.env.PROD && usingDefaultConfig) {
+  console.error('🚨 ADVERTENCIA: Aplicación en producción usando configuración de desarrollo. Configura las variables de entorno de Firebase.');
 }
 
 console.log('Firebase config loaded for project:', firebaseConfig.projectId);
