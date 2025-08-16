@@ -35,150 +35,109 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     let mounted = true;
+    let timeoutId: NodeJS.Timeout;
+
+    // Función optimizada para calcular totales
+    const calculateTotals = (entries: any[]) => {
+      let totalKm = 0, totalLiters = 0, totalHours = 0, totalTrips = 0;
+      let grossIncome = 0, fuelCosts = 0;
+      
+      for (const entry of entries) {
+        const km = (entry.odometerEnd ?? 0) - (entry.odometerStart ?? 0);
+        if (km > 0) totalKm += km;
+        totalLiters += entry.liters ?? 0;
+        totalHours += entry.hours ?? 0;
+        totalTrips += entry.trips ?? 0;
+        grossIncome += entry.gross ?? 0;
+        fuelCosts += entry.fuelCLP ?? 0;
+      }
+      
+      return {
+        avgKmPerL: totalLiters > 0 ? totalKm / totalLiters : undefined,
+        totalHours,
+        totalTrips,
+        grossIncome,
+        netIncome: grossIncome - fuelCosts
+      };
+    };
 
     const loadAll = async () => {
       try {
+        // Cargar datos básicos primero
         const [e, v, g, ex] = await Promise.all([
           entryService.getAll(user.uid),
           vehicleService.getAll(user.uid),
           goalService.getAll(user.uid),
           expenseService.getAll(user.uid)
         ]);
+        
         if (!mounted) return;
+        
+        // Actualizar estado inmediatamente para mostrar datos
         setEntries(e);
         setVehicles(v);
         setGoals(g);
         setFixed(ex);
 
-        // Calcular totales mínimos para Dashboard (ej: rendimiento promedio km/L)
-        const totalKm = e.reduce((sum: number, it: any) => {
-          const km = (it.odometerEnd ?? 0) - (it.odometerStart ?? 0);
-          return sum + (km > 0 ? km : 0);
-        }, 0);
-        const totalLiters = e.reduce((sum: number, it: any) => sum + (it.liters ?? 0), 0);
-        const avgKmPerL = totalLiters > 0 ? totalKm / totalLiters : undefined;
+        setTotals(calculateTotals(e));
 
-        // Métricas básicas adicionales
-        const totalHours = e.reduce((sum: number, it: any) => sum + (it.hours ?? 0), 0);
-        const totalTrips = e.reduce((sum: number, it: any) => sum + (it.trips ?? 0), 0);
-        const grossIncome = e.reduce((sum: number, it: any) => sum + (it.gross ?? 0), 0);
-        const fuelCosts = e.reduce((sum: number, it: any) => sum + (it.fuelCLP ?? 0), 0);
-        const netIncome = grossIncome - fuelCosts;
+        // Actualizar estadísticas en background (no bloquear UI)
+        setTimeout(async () => {
+          if (!mounted) return;
+          try {
+            const now = new Date();
+            const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            const monthEntries = e.filter((it: any) => 
+              typeof it.date === 'string' && it.date.slice(0, 7) === period
+            );
 
-        setTotals({ avgKmPerL, totalHours, totalTrips, grossIncome, netIncome });
-
-        // Persistir estadísticas mensuales actuales para StatsTab
-        try {
-          const now = new Date();
-          const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
-          const monthEntries = e.filter((it: any) => typeof it.date === 'string' && it.date.slice(0, 7) === period);
-
-          const mTotalHours = monthEntries.reduce((sum: number, it: any) => sum + (it.hours ?? 0), 0);
-          const mTotalTrips = monthEntries.reduce((sum: number, it: any) => sum + (it.trips ?? 0), 0);
-          const mGrossIncome = monthEntries.reduce((sum: number, it: any) => sum + (it.gross ?? 0), 0);
-          const mFuelCosts = monthEntries.reduce((sum: number, it: any) => sum + (it.fuelCLP ?? 0), 0);
-          const mTotalKm = monthEntries.reduce((sum: number, it: any) => {
-            const km = (it.odometerEnd ?? 0) - (it.odometerStart ?? 0);
-            return sum + (km > 0 ? km : 0);
-          }, 0);
-          const mTotalLiters = monthEntries.reduce((sum: number, it: any) => sum + (it.liters ?? 0), 0);
-          const mAvgKmPerL = mTotalLiters > 0 ? mTotalKm / mTotalLiters : 0;
-          const mNetIncome = mGrossIncome - mFuelCosts;
-
-          await statsService.upsertMonthly(user.uid, period, {
-            totalTrips: mTotalTrips,
-            totalHours: mTotalHours,
-            grossIncome: mGrossIncome,
-            netIncome: mNetIncome,
-            fuelCosts: mFuelCosts,
-            avgKmPerL: mAvgKmPerL,
-            totalKm: mTotalKm,
-          });
-        } catch (statsErr) {
-          console.error('Error actualizando estadísticas mensuales:', statsErr);
-        }
+            if (monthEntries.length > 0) {
+              const monthlyTotals = calculateTotals(monthEntries);
+              await statsService.upsertMonthly(user.uid, period, {
+                totalTrips: monthlyTotals.totalTrips,
+                totalHours: monthlyTotals.totalHours,
+                grossIncome: monthlyTotals.grossIncome,
+                netIncome: monthlyTotals.netIncome,
+                fuelCosts: monthlyTotals.grossIncome - monthlyTotals.netIncome,
+                avgKmPerL: monthlyTotals.avgKmPerL || 0,
+                totalKm: monthEntries.reduce((sum, it) => {
+                  const km = (it.odometerEnd ?? 0) - (it.odometerStart ?? 0);
+                  return sum + (km > 0 ? km : 0);
+                }, 0),
+              });
+            }
+          } catch (statsErr) {
+            console.warn('Error actualizando estadísticas mensuales (no crítico):', statsErr);
+          }
+        }, 100); // Delay mínimo para no bloquear UI
       } catch (err) {
         console.error('Error cargando datos:', err);
-        // En caso de error, mostrar datos de ejemplo para que la interfaz no esté vacía
         if (!mounted) return;
         
-        // Datos demo temporales mientras se soluciona el acceso a Firebase
-        const demoEntries = [
-          {
-            id: 'demo1',
-            userId: user.uid,
-            date: '2024-01-15',
-            hours: 8.5,
-            trips: 12,
-            gross: 92000,
-            cash: 5000,
-            fuelCLP: 15000,
-            odometerStart: 125000,
-            odometerEnd: 125120,
-            liters: 8.5,
-            zone: 'Centro'
-          },
-          {
-            id: 'demo2', 
-            userId: user.uid,
-            date: '2024-01-14',
-            hours: 7.0,
-            trips: 9,
-            gross: 78000,
-            cash: 3500,
-            fuelCLP: 12000,
-            odometerStart: 124850,
-            odometerEnd: 125000,
-            liters: 7.2,
-            zone: 'Providencia'
-          }
-        ];
-        
-        const demoGoals = [
-          {
-            id: 'goal1',
-            userId: user.uid,
-            name: 'Comprar TV',
-            targetCLP: 300000,
-            savedCLP: 120000,
-            deadline: '2024-03-31'
-          }
-        ];
-        
-        const demoFixed = [
-          {
-            id: 'expense1',
-            userId: user.uid,
-            name: 'Combustible',
-            amountCLP: 30000,
-            paidCLP: 8000
-          }
-        ];
-        
-        setEntries(demoEntries);
-        setGoals(demoGoals);
-        setFixed(demoFixed);
+        // Establecer estados vacíos para evitar problemas de carga
+        setEntries([]);
         setVehicles([]);
-        
-        // Calcular totales con datos demo
-        const totalKm = demoEntries.reduce((sum: number, it: any) => {
-          const km = (it.odometerEnd ?? 0) - (it.odometerStart ?? 0);
-          return sum + (km > 0 ? km : 0);
-        }, 0);
-        const totalLiters = demoEntries.reduce((sum: number, it: any) => sum + (it.liters ?? 0), 0);
-        const avgKmPerL = totalLiters > 0 ? totalKm / totalLiters : undefined;
-        const totalHours = demoEntries.reduce((sum: number, it: any) => sum + (it.hours ?? 0), 0);
-        const totalTrips = demoEntries.reduce((sum: number, it: any) => sum + (it.trips ?? 0), 0);
-        const grossIncome = demoEntries.reduce((sum: number, it: any) => sum + (it.gross ?? 0), 0);
-        const fuelCosts = demoEntries.reduce((sum: number, it: any) => sum + (it.fuelCLP ?? 0), 0);
-        const netIncome = grossIncome - fuelCosts;
-        
-        setTotals({ avgKmPerL, totalHours, totalTrips, grossIncome, netIncome });
+        setGoals([]);
+        setFixed([]);
+        setTotals({
+          avgKmPerL: undefined,
+          totalHours: 0,
+          totalTrips: 0,
+          grossIncome: 0,
+          netIncome: 0
+        });
       }
     };
 
-    loadAll();
-    return () => { mounted = false; };
+    // Ejecutar carga con timeout para evitar bloqueos
+    timeoutId = setTimeout(() => {
+      if (mounted) loadAll();
+    }, 50);
+
+    return () => {
+      mounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [user]);
 
   const onAddExpense = async (expense: Omit<Expense, 'id'>) => {
