@@ -12,40 +12,113 @@ import {
   Timestamp,
   setDoc
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db, ensureFirestoreConnection, isOnline } from '../config/firebase';
 import type { Entry, Vehicle, Goal, FixedExpense, Maintenance, Route, Statistics } from '../types/models';
+
+// Utilidad para manejar errores de conectividad
+const handleFirestoreError = async (error: any, operation: string) => {
+  console.warn(`Firestore ${operation} error:`, error);
+  
+  // Si es un error de red, intentar reconectar
+  if (error.code === 'unavailable' || error.message?.includes('ERR_ABORTED') || error.message?.includes('net::')) {
+    console.log('Network error detected, attempting to restore connection...');
+    const reconnected = await ensureFirestoreConnection();
+    
+    if (!reconnected) {
+      console.log('Unable to restore connection, operating in offline mode');
+      // Mostrar notificación al usuario sobre el modo offline
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        try {
+          new Notification('Ubran - Modo Offline', {
+            body: 'Sin conexión a internet. Los datos se sincronizarán cuando se restaure la conexión.',
+            icon: '/icons/icon-192.png'
+          });
+        } catch (e) {
+          console.log('Notification permission not granted');
+        }
+      }
+    }
+  }
+  
+  throw error;
+};
+
+// Utilidad para reintentar operaciones
+const retryOperation = async <T>(operation: () => Promise<T>, maxRetries = 2): Promise<T> => {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Esperar antes del siguiente intento
+      await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+    }
+  }
+  throw new Error('Max retries exceeded');
+};
 
 // Entradas diarias
 export const entryService = {
   getAll: async (userId: string) => {
-    const q = query(
-      collection(db, 'entries'),
-      where('userId', '==', userId),
-      orderBy('date', 'desc')
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Entry));
+    try {
+      return await retryOperation(async () => {
+        const q = query(
+          collection(db, 'entries'),
+          where('userId', '==', userId),
+          orderBy('date', 'desc')
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Entry));
+      });
+    } catch (error) {
+       await handleFirestoreError(error, 'getAll entries');
+       return [];
+     }
   },
 
   create: async (userId: string, data: Omit<Entry, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => {
-    const now = Timestamp.now();
-    const entry = {
-      ...data,
-      userId,
-      createdAt: now,
-      updatedAt: now
-    };
-    const docRef = await addDoc(collection(db, 'entries'), entry);
-    return { id: docRef.id, ...entry };
+    try {
+      return await retryOperation(async () => {
+        const now = Timestamp.now();
+        const entry = {
+          ...data,
+          userId,
+          createdAt: now,
+          updatedAt: now
+        };
+        const docRef = await addDoc(collection(db, 'entries'), entry);
+        return { id: docRef.id, ...entry };
+      });
+    } catch (error) {
+       await handleFirestoreError(error, 'create entry');
+       throw error;
+     }
   },
 
   update: async (id: string, data: Partial<Entry>) => {
-    const ref = doc(db, 'entries', id);
-    await updateDoc(ref, { ...data, updatedAt: Timestamp.now() });
+    try {
+      await retryOperation(async () => {
+        const ref = doc(db, 'entries', id);
+        await updateDoc(ref, { ...data, updatedAt: Timestamp.now() });
+      });
+    } catch (error) {
+       await handleFirestoreError(error, 'update entry');
+       throw error;
+     }
   },
 
   delete: async (id: string) => {
-    await deleteDoc(doc(db, 'entries', id));
+    try {
+      await retryOperation(async () => {
+        await deleteDoc(doc(db, 'entries', id));
+      });
+    } catch (error) {
+       await handleFirestoreError(error, 'delete entry');
+       throw error;
+     }
   }
 };
 
@@ -218,21 +291,35 @@ export const routeService = {
 // Estadísticas
 export const statsService = {
   getMonthly: async (userId: string, period: string) => {
-    const ref = doc(db, 'statistics', `${userId}_${period}`);
-    const snapshot = await getDoc(ref);
-    return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } as Statistics : null;
+    try {
+      return await retryOperation(async () => {
+        const ref = doc(db, 'statistics', `${userId}_${period}`);
+        const snapshot = await getDoc(ref);
+        return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } as Statistics : null;
+      });
+    } catch (error) {
+       await handleFirestoreError(error, 'getMonthly statistics');
+       return null;
+     }
   },
 
   upsertMonthly: async (userId: string, period: string, data: Partial<Statistics>) => {
-    const now = Timestamp.now();
-    const ref = doc(db, 'statistics', `${userId}_${period}`);
-    const stats = {
-      ...data,
-      userId,
-      period,
-      updatedAt: now
-    };
-    await setDoc(ref, stats, { merge: true });
-    return { id: ref.id, ...stats };
+    try {
+      return await retryOperation(async () => {
+        const now = Timestamp.now();
+        const ref = doc(db, 'statistics', `${userId}_${period}`);
+        const stats = {
+          ...data,
+          userId,
+          period,
+          updatedAt: now
+        };
+        await setDoc(ref, stats, { merge: true });
+        return { id: ref.id, ...stats };
+      });
+    } catch (error) {
+       await handleFirestoreError(error, 'upsertMonthly statistics');
+       throw error;
+     }
   }
 };

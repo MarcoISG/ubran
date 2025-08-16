@@ -7,6 +7,8 @@ import ExpensesTab from './components/ExpensesTab';
 import RoutesTab from './components/RoutesTab';
 import StatsTab from './components/StatsTab';
 import NotificationSettings from './components/NotificationSettings';
+import NetworkStatus from './components/NetworkStatus';
+import FirebaseDiagnostic from './components/FirebaseDiagnostic';
 import { entryService, vehicleService, goalService, expenseService, statsService } from './services/firestore';
 import { Home, Wallet, Route as RouteIcon, BarChart3, Settings as SettingsIcon } from 'lucide-react';
 
@@ -271,6 +273,12 @@ export default function App() {
           </button>
         </div>
       </div>
+      
+      {/* Indicador de estado de red */}
+      <NetworkStatus />
+      
+      {/* Diagnóstico de Firebase */}
+      <FirebaseDiagnostic />
     </div>
   );
 }
